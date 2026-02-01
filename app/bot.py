@@ -70,11 +70,12 @@ def send_welcome(message):
 def show_help(message):
     bot.send_message(
         message.chat.id,
-        "📋 Доступные команды:\n"
-        "/find - Найти собеседника\n"
-        "/leave - Выйти из чата\n"
-        "/report - Пожаловаться на собеседника\n"
-        "/help - Помощь"
+        "ℹ️ *Помощь*\n\n"
+        "🔍 Найти собеседника — начать анонимный диалог\n"
+        "🚪 Выйти из чата — завершить общение\n"
+        "🚨 Пожаловаться — отправить жалобу\n\n"
+        "Все сообщения полностью анонимны.",
+        parse_mode="Markdown"
     )
 
 def find_partner(message):
@@ -96,7 +97,7 @@ def find_partner(message):
     users[user_id]["state"] = "waiting"
     waiting_list.append(user_id)
     
-    bot.send_message(message.chat.id, "🔍 Ищем собеседника...")
+    bot.send_message(message.chat.id, "⏳ Ищем собеседника…\nЭто может занять несколько секунд.")
     try_find_pair()
 
 def try_find_pair():
@@ -117,8 +118,8 @@ def try_find_pair():
         users[user1].update({"state": "chatting", "partner_id": user2, "chat_id": chat_id})
         users[user2].update({"state": "chatting", "partner_id": user1, "chat_id": chat_id})
 
-        bot.send_message(user1, f"💬 Собеседник найден! (ID чата: {chat_id})\nНачинайте общение.")
-        bot.send_message(user2, f"💬 Собеседник найден! (ID чата: {chat_id})\nНачинайте общение.")
+        bot.send_message(user1, f"💬 Собеседник найден.\nМожете начинать общение.")
+        bot.send_message(user2, f"💬 Собеседник найден.\nМожете начинать общение.")
 
 def leave_chat(message):
     user_id = message.from_user.id
