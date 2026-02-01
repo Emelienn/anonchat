@@ -303,26 +303,29 @@ def handle_commands(message):
 @bot.message_handler(content_types=['text'])
 def handle_text(message):
     user_id = message.from_user.id
-    
+
     if user_id not in users:
         send_welcome(message)
         return
-    
+
+    # Если пользователь НЕ в чате
     if users[user_id]["state"] != "chatting":
-    # если это кнопка — ничего не делаем
-    if message.text in [
-        "🚀 Начать диалог",
-        "⚠️ Пожаловаться",
-        "🚪 Выйти из чата"
-    ]:
+
+        # Если это нажатие кнопки — просто выходим
+        if message.text in (
+            "🚀 Начать диалог",
+            "⚠️ Пожаловаться",
+            "🚪 Выйти из чата"
+        ):
+            return
+
+        bot.send_message(
+            user_id,
+            "ℹ️ Используйте кнопки внизу экрана"
+        )
         return
 
-    bot.send_message(
-        user_id,
-        "ℹ️ Используйте кнопки внизу экрана"
-    )
-    return
-    
+    # Если пользователь в чате — пересылаем сообщение
     forward_message(message)
 
 @bot.message_handler(content_types=['photo', 'video', 'document', 'audio', 'voice', 'sticker'])
