@@ -212,11 +212,10 @@ def handle_messages(message):
 # ПЕРВЫЙ КОНТАКТ (/start и всё остальное)
 # =====================
 
-@bot.message_handler(func=lambda m: True)
-def first_touch(message):
+@bot.message_handler(commands=['start'])
+def start_command(message):
     user_id = message.from_user.id
-    if user_id not in users:
-        reset_user(user_id)
+    reset_user(user_id)
     send_welcome(user_id)
 
 # =====================
