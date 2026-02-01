@@ -12,8 +12,7 @@ if not TOKEN:
     raise RuntimeError("BOT_TOKEN is not set")
 
 bot = telebot.TeleBot(TOKEN)
-
-WELCOME_IMAGE = "welcome.jpg"  # файл с фоном
+WELCOME_IMAGE = "welcome.jpg"  # 640x360
 
 # =====================
 # СОСТОЯНИЯ
@@ -56,7 +55,7 @@ def send_welcome(chat_id):
         "Ты полностью анонимен.\n"
         "Без имён. Без истории.\n"
         "Только диалог 1 на 1.\n\n"
-        " Нажми кнопку ниже, чтобы начать 💎"
+        "👇 Нажми кнопку ниже, чтобы начать"
     )
 
     try:
@@ -69,13 +68,22 @@ def send_welcome(chat_id):
                 reply_markup=main_menu()
             )
     except:
-        # fallback если картинки нет
         bot.send_message(
             chat_id,
             text,
             parse_mode="Markdown",
             reply_markup=main_menu()
         )
+
+# =====================
+# /START — ВСЕГДА РАБОТАЕТ
+# =====================
+
+@bot.message_handler(commands=['start'])
+def start_command(message):
+    user_id = message.from_user.id
+    reset_user(user_id)
+    send_welcome(user_id)
 
 # =====================
 # ПОИСК СОБЕСЕДНИКА
@@ -86,7 +94,9 @@ def try_find_pair():
         u1 = waiting_list.pop(0)
         u2 = waiting_list.pop(0)
 
-        if users[u1]["state"] != "waiting" or users[u2]["state"] != "waiting":
+        if users.get(u1, {}).get("state") != "waiting":
+            continue
+        if users.get(u2, {}).get("state") != "waiting":
             continue
 
         users[u1]["state"] = "chatting"
@@ -94,16 +104,8 @@ def try_find_pair():
         users[u1]["partner_id"] = u2
         users[u2]["partner_id"] = u1
 
-        bot.send_message(
-            u1,
-            "💬 Собеседник найден.\nМожно начинать общение 👀",
-            reply_markup=chat_menu()
-        )
-        bot.send_message(
-            u2,
-            "💬 Собеседник найден.\nМожно начинать общение 👀",
-            reply_markup=chat_menu()
-        )
+        bot.send_message(u1, "💬 Собеседник найден.\nМожно начинать 👀", reply_markup=chat_menu())
+        bot.send_message(u2, "💬 Собеседник найден.\nМожно начинать 👀", reply_markup=chat_menu())
 
 # =====================
 # КНОПКИ
@@ -123,17 +125,15 @@ def start_dialog(message):
     users[user_id]["state"] = "waiting"
     waiting_list.append(user_id)
 
-    bot.send_message(
-        user_id,
-        "⏳ Ищем собеседника…\nЭто может занять несколько секунд."
-    )
+    bot.send_message(user_id, "⏳ Ищем собеседника…")
     try_find_pair()
 
 @bot.message_handler(func=lambda m: m.text == "🚪 Выйти из чата")
 def leave_chat(message):
     user_id = message.from_user.id
 
-    if user_id not in users or users[user_id]["state"] == "none":
+    if user_id not in users:
+        reset_user(user_id)
         send_welcome(user_id)
         return
 
@@ -144,18 +144,18 @@ def leave_chat(message):
         send_welcome(user_id)
         return
 
-    partner_id = users[user_id]["partner_id"]
+    if users[user_id]["state"] == "chatting":
+        partner_id = users[user_id]["partner_id"]
+        reset_user(user_id)
+        send_welcome(user_id)
 
-    reset_user(user_id)
-    send_welcome(user_id)
-
-    if partner_id in users and users[partner_id]["state"] == "chatting":
-        reset_user(partner_id)
-        bot.send_message(
-            partner_id,
-            "❌ Собеседник покинул чат",
-            reply_markup=main_menu()
-        )
+        if partner_id in users:
+            reset_user(partner_id)
+            bot.send_message(
+                partner_id,
+                "❌ Собеседник покинул чат",
+                reply_markup=main_menu()
+            )
 
 @bot.message_handler(func=lambda m: m.text == "⚠️ Пожаловаться")
 def report_user(message):
@@ -167,7 +167,7 @@ def report_user(message):
     partner_id = users[user_id]["partner_id"]
     reports[partner_id] = reports.get(partner_id, 0) + 1
 
-    bot.send_message(user_id, "✅ Жалоба отправлена. Спасибо!")
+    bot.send_message(user_id, "✅ Жалоба отправлена")
     leave_chat(message)
 
 # =====================
@@ -191,32 +191,32 @@ def handle_messages(message):
     partner_id = users[user_id]["partner_id"]
 
     try:
-        if message.content_type == 'text':
-            bot.send_message(partner_id, message.text)
-        elif message.content_type == 'photo':
-            bot.send_photo(partner_id, message.photo[-1].file_id)
-        elif message.content_type == 'video':
-            bot.send_video(partner_id, message.video.file_id)
-        elif message.content_type == 'document':
-            bot.send_document(partner_id, message.document.file_id)
-        elif message.content_type == 'audio':
-            bot.send_audio(partner_id, message.audio.file_id)
-        elif message.content_type == 'voice':
-            bot.send_voice(partner_id, message.voice.file_id)
-        elif message.content_type == 'sticker':
-            bot.send_sticker(partner_id, message.sticker.file_id)
+        getattr(bot, f"send_{message.content_type}")(
+            partner_id,
+            getattr(message, message.content_type).file_id
+        ) if message.content_type != "text" else bot.send_message(partner_id, message.text)
     except:
         leave_chat(message)
 
 # =====================
-# ПЕРВЫЙ КОНТАКТ (/start и всё остальное)
+# БЕЗОПАСНЫЙ FALLBACK (НЕ ЛОМАЕТ /start)
 # =====================
 
-@bot.message_handler(commands=['start'])
-def start_command(message):
+@bot.message_handler(content_types=['text'])
+def safe_fallback(message):
     user_id = message.from_user.id
-    reset_user(user_id)
-    send_welcome(user_id)
+
+    if user_id not in users:
+        reset_user(user_id)
+        send_welcome(user_id)
+        return
+
+    if users[user_id]["state"] == "none":
+        bot.send_message(
+            user_id,
+            "Нажми кнопку ниже, чтобы начать 💎",
+            reply_markup=main_menu()
+        )
 
 # =====================
 # СТАРТ
