@@ -4,10 +4,10 @@ import time
 from collections import defaultdict
 from datetime import datetime
 
-TOKEN = '8149003338:AAEX2Pvee46hjmfFX-J5ixlcw41wadLY8uo'
+TOKEN = ''
 ADMIN_USERNAME = 'Emeliennn'
 
-bot = telebot.TeleBot(TOKEN)
+bot = telebot.TeleBot(8149003338:AAEX2Pvee46hjmfFX-J5ixlcw41wadLY8uo)
 
 users = {}
 banned_users = set()
