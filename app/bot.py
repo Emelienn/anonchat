@@ -4,8 +4,8 @@ import time
 from collections import defaultdict
 from datetime import datetime
 
-TOKEN = ''
-ADMIN_USERNAME = ''
+TOKEN = '8149003338:AAEX2Pvee46hjmfFX-J5ixlcw41wadLY8uo'
+ADMIN_USERNAME = 'Emeliennn'
 
 bot = telebot.TeleBot(TOKEN)
 
