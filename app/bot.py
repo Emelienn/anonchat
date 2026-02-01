@@ -13,6 +13,8 @@ if not TOKEN:
 
 bot = telebot.TeleBot(TOKEN)
 
+WELCOME_IMAGE = "welcome.jpg"  # файл с фоном
+
 # =====================
 # СОСТОЯНИЯ
 # =====================
@@ -42,22 +44,38 @@ def chat_menu():
 # ВСПОМОГАТЕЛЬНОЕ
 # =====================
 
-def send_welcome(chat_id):
-    bot.send_message(
-        chat_id,
-        "🔥 *Анонимный чат 18+*\n\n"
-        "Ты полностью анонимен.\n"
-        "Можно говорить свободно.\n\n"
-        "👇 Выбери действие:",
-        parse_mode="Markdown",
-        reply_markup=main_menu()
-    )
-
 def reset_user(user_id):
     users[user_id] = {
         "state": "none",
         "partner_id": None
     }
+
+def send_welcome(chat_id):
+    text = (
+        "🕶 *Анонимный чат | 18+*\n\n"
+        "Ты полностью анонимен.\n"
+        "Без имён. Без истории.\n"
+        "Только диалог 1 на 1.\n\n"
+        "👇 Нажми кнопку ниже, чтобы начать"
+    )
+
+    try:
+        with open(WELCOME_IMAGE, "rb") as photo:
+            bot.send_photo(
+                chat_id,
+                photo,
+                caption=text,
+                parse_mode="Markdown",
+                reply_markup=main_menu()
+            )
+    except:
+        # fallback если картинки нет
+        bot.send_message(
+            chat_id,
+            text,
+            parse_mode="Markdown",
+            reply_markup=main_menu()
+        )
 
 # =====================
 # ПОИСК СОБЕСЕДНИКА
@@ -99,7 +117,7 @@ def start_dialog(message):
         reset_user(user_id)
 
     if users[user_id]["state"] != "none":
-        bot.send_message(user_id, "❌ Ты уже в чате или в поиске")
+        bot.send_message(user_id, "⏳ Ты уже в поиске или в чате")
         return
 
     users[user_id]["state"] = "waiting"
@@ -129,7 +147,7 @@ def leave_chat(message):
     partner_id = users[user_id]["partner_id"]
 
     reset_user(user_id)
-    bot.send_message(user_id, "✅ Ты вышел из чата", reply_markup=main_menu())
+    send_welcome(user_id)
 
     if partner_id in users and users[partner_id]["state"] == "chatting":
         reset_user(partner_id)
@@ -191,7 +209,7 @@ def handle_messages(message):
         leave_chat(message)
 
 # =====================
-# СТАРТ
+# ПЕРВЫЙ КОНТАКТ (/start и всё остальное)
 # =====================
 
 @bot.message_handler(func=lambda m: True)
@@ -201,6 +219,10 @@ def first_touch(message):
         reset_user(user_id)
     send_welcome(user_id)
 
+# =====================
+# СТАРТ
+# =====================
+
 if __name__ == "__main__":
-    print("🔥 Анонимный чат 18+ запущен")
+    print("🕶 Анонимный чат | 18+ запущен")
     bot.infinity_polling()
