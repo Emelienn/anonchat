@@ -31,11 +31,19 @@ def main_menu():
     kb.add(KeyboardButton("🚀 Начать диалог"))
     return kb
 
+
+def search_menu():
+    kb = ReplyKeyboardMarkup(resize_keyboard=True)
+    kb.add(KeyboardButton("⛔ Остановить поиск"))
+    return kb
+
+
 def chat_menu():
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
     kb.add(
-        KeyboardButton("🚪 Выйти из чата"),
-        KeyboardButton("⚠️ Пожаловаться")
+        KeyboardButton("🔄 Следующий собеседник"),
+        KeyboardButton("⚠️ Пожаловаться"),
+        KeyboardButton("🚪 Выйти из чата")
     )
     return kb
 
@@ -55,7 +63,7 @@ def send_welcome(chat_id):
         "Ты полностью анонимен.\n"
         "Без имён. Без истории.\n"
         "Только диалог 1 на 1.\n\n"
-        "👇 Нажми кнопку ниже, чтобы начать"
+        "Нажми кнопку ниже, чтобы начать 💎"
     )
 
     try:
@@ -125,8 +133,57 @@ def start_dialog(message):
     users[user_id]["state"] = "waiting"
     waiting_list.append(user_id)
 
-    bot.send_message(user_id, "⏳ Ищем собеседника…")
+    bot.send_message(
+        user_id,
+        "⏳ Ищем собеседника…",
+        reply_markup=search_menu()
+    )
     try_find_pair()
+
+
+@bot.message_handler(func=lambda m: m.text == "⛔ Остановить поиск")
+def stop_search(message):
+    user_id = message.from_user.id
+
+    if user_id not in users or users[user_id]["state"] != "waiting":
+        return
+
+    if user_id in waiting_list:
+        waiting_list.remove(user_id)
+
+    reset_user(user_id)
+    send_welcome(user_id)
+
+
+@bot.message_handler(func=lambda m: m.text == "🔄 Следующий собеседник")
+def next_partner(message):
+    user_id = message.from_user.id
+
+    if user_id not in users or users[user_id]["state"] != "chatting":
+        return
+
+    partner_id = users[user_id]["partner_id"]
+
+    reset_user(user_id)
+
+    if partner_id in users:
+        reset_user(partner_id)
+        bot.send_message(
+            partner_id,
+            "❌ Собеседник переключился",
+            reply_markup=main_menu()
+        )
+
+    users[user_id]["state"] = "waiting"
+    waiting_list.append(user_id)
+
+    bot.send_message(
+        user_id,
+        "🔄 Ищем нового собеседника…",
+        reply_markup=search_menu()
+    )
+    try_find_pair()
+
 
 @bot.message_handler(func=lambda m: m.text == "🚪 Выйти из чата")
 def leave_chat(message):
@@ -157,6 +214,7 @@ def leave_chat(message):
                 reply_markup=main_menu()
             )
 
+
 @bot.message_handler(func=lambda m: m.text == "⚠️ Пожаловаться")
 def report_user(message):
     user_id = message.from_user.id
@@ -180,26 +238,24 @@ def report_user(message):
 def handle_messages(message):
     user_id = message.from_user.id
 
-    if user_id not in users:
-        reset_user(user_id)
-        send_welcome(user_id)
-        return
-
-    if users[user_id]["state"] != "chatting":
+    if user_id not in users or users[user_id]["state"] != "chatting":
         return
 
     partner_id = users[user_id]["partner_id"]
 
     try:
-        getattr(bot, f"send_{message.content_type}")(
-            partner_id,
-            getattr(message, message.content_type).file_id
-        ) if message.content_type != "text" else bot.send_message(partner_id, message.text)
+        if message.content_type == "text":
+            bot.send_message(partner_id, message.text)
+        else:
+            getattr(bot, f"send_{message.content_type}")(
+                partner_id,
+                getattr(message, message.content_type).file_id
+            )
     except:
         leave_chat(message)
 
 # =====================
-# БЕЗОПАСНЫЙ FALLBACK (НЕ ЛОМАЕТ /start)
+# FALLBACK
 # =====================
 
 @bot.message_handler(content_types=['text'])
