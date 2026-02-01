@@ -4,6 +4,7 @@ from telebot.types import Message
 import time
 from collections import defaultdict
 from datetime import datetime
+from telebot.types import ReplyKeyboardMarkup, KeyboardButton
 
 TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_USERNAME = 'Emeliennn'
@@ -42,6 +43,21 @@ def format_timestamp(timestamp):
 # ОСНОВНЫЕ ФУНКЦИИ
 # ==============================================
 
+def chat_menu():
+    kb = ReplyKeyboardMarkup(resize_keyboard=True)
+    kb.add(KeyboardButton("🚪 Выйти из чата"))
+    return kb
+
+def main_menu():
+    kb = ReplyKeyboardMarkup(resize_keyboard=True)
+    kb.add(
+        KeyboardButton("🚀 Начать диалог")
+    )
+    kb.add(
+        KeyboardButton("⚠️ Пожаловаться")
+    )
+    return kb
+
 def send_welcome(message):
     user_id = message.from_user.id
     username = message.from_user.username or str(user_id)
@@ -58,13 +74,13 @@ def send_welcome(message):
     }
     
     bot.send_message(
-        message.chat.id,
-        "👋 Привет! Это анонимный чат.\n"
-        "Доступные команды:\n"
-        "/find - Найти собеседника\n"
-        "/leave - Выйти из чата\n"
-        "/report - Пожаловаться на собеседника\n"
-        "/help - Помощь"
+    message.chat.id,
+    "🔥 *Анонимный чат 18+*\n\n"
+    "Ты полностью анонимен.\n"
+    "Можно говорить свободно.\n\n"
+    "👇 Выбери действие:",
+    parse_mode="Markdown",
+    reply_markup=main_menu()
     )
 
 def show_help(message):
@@ -118,8 +134,17 @@ def try_find_pair():
         users[user1].update({"state": "chatting", "partner_id": user2, "chat_id": chat_id})
         users[user2].update({"state": "chatting", "partner_id": user1, "chat_id": chat_id})
 
-        bot.send_message(user1, f"💬 Собеседник найден.\nМожете начинать общение.")
-        bot.send_message(user2, f"💬 Собеседник найден.\nМожете начинать общение.")
+        bot.send_message(
+    user1,
+    "💬 Собеседник найден.\nМожно начинать общение 👀",
+    reply_markup=chat_menu()
+)
+
+bot.send_message(
+    user2,
+    "💬 Собеседник найден.\nМожно начинать общение 👀",
+    reply_markup=chat_menu()
+)
 
 def leave_chat(message):
     user_id = message.from_user.id
@@ -421,3 +446,15 @@ def get_chat_ids(message):
 if __name__ == '__main__':
     print("✨ Бот запущен...")
     bot.infinity_polling()
+
+@bot.message_handler(func=lambda message: message.text == "🚀 Начать диалог")
+def start_dialog_button(message):
+    find_partner(message)
+
+@bot.message_handler(func=lambda message: message.text == "⚠️ Пожаловаться")
+def report_button(message):
+    report_user(message)
+
+@bot.message_handler(func=lambda message: message.text == "🚪 Выйти из чата")
+def leave_chat_button(message):
+    leave_chat(message)
