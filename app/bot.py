@@ -1,13 +1,17 @@
+import os
 import telebot
 from telebot.types import Message
 import time
 from collections import defaultdict
 from datetime import datetime
 
-TOKEN = ''
+TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_USERNAME = 'Emeliennn'
 
-bot = telebot.TeleBot(8149003338:AAEX2Pvee46hjmfFX-J5ixlcw41wadLY8uo)
+if not TOKEN:
+    raise RuntimeError("BOT_TOKEN is not set")
+
+bot = telebot.TeleBot(TOKEN)
 
 users = {}
 banned_users = set()
