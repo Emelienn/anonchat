@@ -120,10 +120,10 @@ def try_find_pair():
     while len(waiting_list) >= 2:
         user1 = waiting_list.pop(0)
         user2 = waiting_list.pop(0)
-        
+
         if users[user1]["state"] != "waiting" or users[user2]["state"] != "waiting":
             continue
-        
+
         chat_id = f"{user1}_{user2}_{int(time.time())}"
         chats[chat_id] = {
             "user1": user1,
@@ -131,20 +131,28 @@ def try_find_pair():
             "created_at": time.time()
         }
 
-        users[user1].update({"state": "chatting", "partner_id": user2, "chat_id": chat_id})
-        users[user2].update({"state": "chatting", "partner_id": user1, "chat_id": chat_id})
+        users[user1].update({
+            "state": "chatting",
+            "partner_id": user2,
+            "chat_id": chat_id
+        })
+        users[user2].update({
+            "state": "chatting",
+            "partner_id": user1,
+            "chat_id": chat_id
+        })
 
         bot.send_message(
-    user1,
-    "💬 Собеседник найден.\nМожно начинать общение 👀",
-    reply_markup=chat_menu()
-)
+            user1,
+            "💬 Собеседник найден.\nМожно начинать общение 👀",
+            reply_markup=chat_menu()
+        )
 
-bot.send_message(
-    user2,
-    "💬 Собеседник найден.\nМожно начинать общение 👀",
-    reply_markup=chat_menu()
-)
+        bot.send_message(
+            user2,
+            "💬 Собеседник найден.\nМожно начинать общение 👀",
+            reply_markup=chat_menu()
+        )
 
 def leave_chat(message):
     user_id = message.from_user.id
@@ -443,10 +451,6 @@ def get_chat_ids(message):
 # ЗАПУСК БОТА
 # ==============================================
 
-if __name__ == '__main__':
-    print("✨ Бот запущен...")
-    bot.infinity_polling()
-
 @bot.message_handler(func=lambda message: message.text == "🚀 Начать диалог")
 def start_dialog_button(message):
     find_partner(message)
@@ -458,3 +462,7 @@ def report_button(message):
 @bot.message_handler(func=lambda message: message.text == "🚪 Выйти из чата")
 def leave_chat_button(message):
     leave_chat(message)
+
+if __name__ == '__main__':
+    print("✨ Бот запущен...")
+    bot.infinity_polling()
