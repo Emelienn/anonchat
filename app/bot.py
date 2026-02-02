@@ -64,6 +64,8 @@ def reset_user(uid):
     users[uid] = {"state": "none", "partner_id": None}
     all_users.add(uid)
     cancel_script(uid)
+    if uid in waiting_list:
+        waiting_list.remove(uid)
 
 def cancel_script(uid):
     timer = script_timers.pop(uid, None)
@@ -84,6 +86,65 @@ def send_welcome(uid):
         bot.send_message(uid, text, parse_mode="Markdown", reply_markup=main_menu())
 
 # =====================
+# АДМИН
+# =====================
+
+def is_admin(uid):
+    return uid == ADMIN_ID
+
+@bot.message_handler(commands=["admin"])
+def admin_panel(message):
+    if not is_admin(message.from_user.id):
+        return
+    bot.send_message(
+        message.chat.id,
+        "/stats\n/script_on\n/script_off\n/script_status"
+    )
+
+@bot.message_handler(commands=["stats"])
+def stats_cmd(message):
+    if not is_admin(message.from_user.id):
+        return
+
+    online = sum(1 for u in users.values() if u["state"] != "none")
+    searching = sum(1 for u in users.values() if u["state"] == "waiting")
+    chatting = sum(1 for u in users.values() if u["state"] == "chatting")
+
+    bot.send_message(
+        message.chat.id,
+        f"👥 Всего пользователей: {len(all_users)}\n"
+        f"🟢 Онлайн: {online}\n"
+        f"🔍 В поиске: {searching}\n"
+        f"💬 В чате: {chatting}\n"
+        f"🤖 Скрипт: {'ON' if SCRIPT_ENABLED else 'OFF'}"
+    )
+
+@bot.message_handler(commands=["script_on"])
+def script_on(message):
+    global SCRIPT_ENABLED
+    if not is_admin(message.from_user.id):
+        return
+    SCRIPT_ENABLED = True
+    bot.send_message(message.chat.id, "🤖 Скрипт ВКЛЮЧЕН")
+
+@bot.message_handler(commands=["script_off"])
+def script_off(message):
+    global SCRIPT_ENABLED
+    if not is_admin(message.from_user.id):
+        return
+    SCRIPT_ENABLED = False
+    bot.send_message(message.chat.id, "🤖 Скрипт ВЫКЛЮЧЕН")
+
+@bot.message_handler(commands=["script_status"])
+def script_status(message):
+    if not is_admin(message.from_user.id):
+        return
+    bot.send_message(
+        message.chat.id,
+        f"🤖 Скрипт сейчас: {'ON' if SCRIPT_ENABLED else 'OFF'}"
+    )
+
+# =====================
 # СКРИПТ
 # =====================
 
@@ -97,6 +158,8 @@ def run_script(uid):
 
     def step():
         if users.get(uid, {}).get("state") != "waiting":
+            return
+        if len(waiting_list) != 1:
             return
 
         if random.random() > SILENT_SKIP_CHANCE:
@@ -131,6 +194,7 @@ def try_find_pair():
         u2 = waiting_list.pop(0)
 
         if u1 == u2:
+            waiting_list.append(u1)
             continue
 
         if users.get(u1, {}).get("state") != "waiting":
@@ -168,7 +232,7 @@ def start_dialog(message):
     bot.send_message(uid, "⏳ Ищем собеседника…", reply_markup=search_menu())
     try_find_pair()
 
-    if SCRIPT_ENABLED:
+    if SCRIPT_ENABLED and len(waiting_list) == 1:
         run_script(uid)
 
 @bot.message_handler(func=lambda m: m.text in ["⛔ Остановить поиск", "🚪 Выйти из чата"])
@@ -182,15 +246,19 @@ def next_partner(message):
     pid = users.get(uid, {}).get("partner_id")
 
     reset_user(uid)
-    if pid in users:
+
+    if pid in users and users[pid]["state"] == "chatting":
         reset_user(pid)
         bot.send_message(pid, "❌ Собеседник переключился", reply_markup=main_menu())
 
     users[uid]["state"] = "waiting"
     waiting_list.append(uid)
+
     bot.send_message(uid, "🔄 Ищем нового собеседника…", reply_markup=search_menu())
     try_find_pair()
-    run_script(uid)
+
+    if SCRIPT_ENABLED and len(waiting_list) == 1:
+        run_script(uid)
 
 # =====================
 # ПЕРЕСЫЛКА
