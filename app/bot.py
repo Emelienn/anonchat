@@ -12,7 +12,7 @@ TOKEN = os.getenv("BOT_TOKEN")
 if not TOKEN:
     raise RuntimeError("BOT_TOKEN is not set")
 
-bot = telebot.TeleBot(TOKEN)
+bot = telebot.TeleBot(TOKEN, threaded=True)
 WELCOME_IMAGE = "welcome.jpg"
 
 ADMIN_ID = 7358829982
@@ -83,7 +83,12 @@ def send_welcome(uid):
     )
     try:
         with open(WELCOME_IMAGE, "rb") as photo:
-            bot.send_photo(uid, photo, caption=text, parse_mode="Markdown", reply_markup=main_menu())
+            bot.send_photo(
+                uid, photo,
+                caption=text,
+                parse_mode="Markdown",
+                reply_markup=main_menu()
+            )
     except:
         bot.send_message(uid, text, parse_mode="Markdown", reply_markup=main_menu())
 
@@ -147,11 +152,13 @@ def script_status(message):
         )
 
 # =====================
-# СКРИПТ (БЕЗ state=script)
+# СКРИПТ (СТАБИЛЬНЫЙ)
 # =====================
 
 def run_script(uid):
     if not SCRIPT_ENABLED:
+        return
+    if uid in script_timers:
         return
     if users.get(uid, {}).get("state") != "waiting":
         return
@@ -161,13 +168,20 @@ def run_script(uid):
     def step():
         if users.get(uid, {}).get("state") != "waiting":
             return
+        if len(waiting_list) != 1:
+            return
+
         if random.random() > SILENT_SKIP_CHANCE:
             bot.send_message(uid, random.choice(SCRIPT_MESSAGES))
 
         def skip():
             if users.get(uid, {}).get("state") == "waiting":
                 reset_user(uid)
-                bot.send_message(uid, "❌ Собеседник переключился", reply_markup=main_menu())
+                bot.send_message(
+                    uid,
+                    "❌ Собеседник переключился",
+                    reply_markup=main_menu()
+                )
 
         threading.Timer(4, skip).start()
 
@@ -294,4 +308,4 @@ def relay(message):
 
 if __name__ == "__main__":
     print("🖤 Анонимный чат | 18+ запущен")
-    bot.infinity_polling()
+    bot.infinity_polling(skip_pending=True)
