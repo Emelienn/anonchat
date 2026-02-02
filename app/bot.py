@@ -83,12 +83,7 @@ def send_welcome(uid):
     )
     try:
         with open(WELCOME_IMAGE, "rb") as photo:
-            bot.send_photo(
-                uid, photo,
-                caption=text,
-                parse_mode="Markdown",
-                reply_markup=main_menu()
-            )
+            bot.send_photo(uid, photo, caption=text, parse_mode="Markdown", reply_markup=main_menu())
     except:
         bot.send_message(uid, text, parse_mode="Markdown", reply_markup=main_menu())
 
@@ -146,42 +141,36 @@ def script_off(message):
 @bot.message_handler(commands=["script_status"])
 def script_status(message):
     if is_admin(message.from_user.id):
-        bot.send_message(
-            message.chat.id,
-            f"🤖 Скрипт сейчас: {'ON' if SCRIPT_ENABLED else 'OFF'}"
-        )
+        bot.send_message(message.chat.id, f"🤖 Скрипт сейчас: {'ON' if SCRIPT_ENABLED else 'OFF'}")
 
 # =====================
-# СКРИПТ (СТАБИЛЬНЫЙ)
+# СКРИПТ (ИЗОЛИРОВАН)
 # =====================
 
 def run_script(uid):
     if not SCRIPT_ENABLED:
-        return
-    if uid in script_timers:
         return
     if users.get(uid, {}).get("state") != "waiting":
         return
     if len(waiting_list) != 1:
         return
 
+    users[uid]["state"] = "script"
+    waiting_list.remove(uid)
+
+    bot.send_message(uid, "💬 Собеседник найден", reply_markup=chat_menu())
+
     def step():
-        if users.get(uid, {}).get("state") != "waiting":
-            return
-        if len(waiting_list) != 1:
+        if users.get(uid, {}).get("state") != "script":
             return
 
         if random.random() > SILENT_SKIP_CHANCE:
             bot.send_message(uid, random.choice(SCRIPT_MESSAGES))
 
         def skip():
-            if users.get(uid, {}).get("state") == "waiting":
+            if users.get(uid, {}).get("state") == "script":
                 reset_user(uid)
-                bot.send_message(
-                    uid,
-                    "❌ Собеседник переключился",
-                    reply_markup=main_menu()
-                )
+                bot.send_message(uid, "❌ Собеседник переключился", reply_markup=main_menu())
 
         threading.Timer(4, skip).start()
 
@@ -235,8 +224,7 @@ def start_dialog(message):
         return
 
     users[uid]["state"] = "waiting"
-    if uid not in waiting_list:
-        waiting_list.append(uid)
+    waiting_list.append(uid)
 
     bot.send_message(uid, "⏳ Ищем собеседника…", reply_markup=search_menu())
     try_find_pair()
@@ -244,44 +232,19 @@ def start_dialog(message):
     if SCRIPT_ENABLED and len(waiting_list) == 1:
         run_script(uid)
 
-@bot.message_handler(func=lambda m: m.text in ["⛔ Остановить поиск", "🚪 Выйти из чата"])
-def stop_search(message):
-    reset_user(message.from_user.id)
-    bot.send_message(message.from_user.id, "Поиск остановлен", reply_markup=main_menu())
-
-@bot.message_handler(func=lambda m: m.text == "🔄 Следующий собеседник")
-def next_partner(message):
-    uid = message.from_user.id
-    pid = users.get(uid, {}).get("partner_id")
-
-    reset_user(uid)
-
-    if pid and users.get(pid, {}).get("state") == "chatting":
-        reset_user(pid)
-        bot.send_message(pid, "❌ Собеседник переключился", reply_markup=main_menu())
-
-    users[uid]["state"] = "waiting"
-    waiting_list.append(uid)
-
-    bot.send_message(uid, "🔄 Ищем нового собеседника…", reply_markup=search_menu())
-    try_find_pair()
-
-    if SCRIPT_ENABLED and len(waiting_list) == 1:
-        run_script(uid)
-
 # =====================
-# ПЕРЕСЫЛКА
+# ПЕРЕСЫЛКА (БЕЗ КОМАНД)
 # =====================
 
-@bot.message_handler(content_types=[
-    "text", "photo", "video", "video_note", "voice",
-    "audio", "document", "sticker", "animation",
-    "location", "contact"
-])
+@bot.message_handler(
+    content_types=[
+        "text", "photo", "video", "video_note", "voice",
+        "audio", "document", "sticker", "animation",
+        "location", "contact"
+    ],
+    func=lambda m: not (m.text and m.text.startswith("/"))
+)
 def relay(message):
-    if message.text and message.text.startswith("/"):
-        return
-
     uid = message.from_user.id
     if users.get(uid, {}).get("state") != "chatting":
         return
@@ -295,8 +258,7 @@ def relay(message):
             bot.send_message(pid, message.text)
         else:
             getattr(bot, f"send_{message.content_type}")(
-                pid,
-                getattr(message, message.content_type).file_id
+                pid, getattr(message, message.content_type).file_id
             )
     except:
         reset_user(uid)
