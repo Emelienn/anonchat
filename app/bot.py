@@ -12,7 +12,7 @@ TOKEN = os.getenv("BOT_TOKEN")
 if not TOKEN:
     raise RuntimeError("BOT_TOKEN is not set")
 
-bot = telebot.TeleBot(TOKEN)
+bot = telebot.TeleBot(TOKEN, threaded=True)
 WELCOME_IMAGE = "welcome.jpg"
 
 ADMIN_ID = 7358829982
@@ -89,10 +89,22 @@ def send_welcome(uid):
         bot.send_message(uid, text, parse_mode="Markdown", reply_markup=main_menu())
 
 # =====================
-# АДМИН ФУНКЦИИ
+# /START
 # =====================
 
-def admin_panel(message):
+@bot.message_handler(commands=["start"])
+def start_cmd(message):
+    reset_user(message.from_user.id)
+    send_welcome(message.from_user.id)
+
+# =====================
+# АДМИН КОМАНДЫ
+# =====================
+
+@bot.message_handler(commands=["admin"])
+def admin_cmd(message):
+    if not is_admin(message.from_user.id):
+        return
     bot.send_message(
         message.chat.id,
         "🛠 *Админ-панель*\n\n"
@@ -103,7 +115,11 @@ def admin_panel(message):
         parse_mode="Markdown"
     )
 
+@bot.message_handler(commands=["stats"])
 def stats_cmd(message):
+    if not is_admin(message.from_user.id):
+        return
+
     online = sum(1 for u in users.values() if u["state"] != "none")
     searching = sum(1 for u in users.values() if u["state"] == "waiting")
     chatting = sum(1 for u in users.values() if u["state"] == "chatting")
@@ -119,43 +135,31 @@ def stats_cmd(message):
         parse_mode="Markdown"
     )
 
-# =====================
-# 🔥 COMMAND ROUTER (КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ)
-# =====================
-
-@bot.message_handler(
-    func=lambda m: m.text 
-    and m.text.startswith("/") 
-    and not m.text.startswith("/start")
-)
-def command_router(message):
+@bot.message_handler(commands=["script_on"])
+def script_on_cmd(message):
+    global SCRIPT_ENABLED
     if not is_admin(message.from_user.id):
         return
+    SCRIPT_ENABLED = True
+    bot.send_message(message.chat.id, "🤖 Скрипт *включён*", parse_mode="Markdown")
 
+@bot.message_handler(commands=["script_off"])
+def script_off_cmd(message):
     global SCRIPT_ENABLED
+    if not is_admin(message.from_user.id):
+        return
+    SCRIPT_ENABLED = False
+    bot.send_message(message.chat.id, "🤖 Скрипт *выключен*", parse_mode="Markdown")
 
-    cmd = message.text.split("@")[0]  # ← ВАЖНО
-
-    if cmd == "/admin":
-        admin_panel(message)
-
-    elif cmd == "/stats":
-        stats_cmd(message)
-
-    elif cmd == "/script_on":
-        SCRIPT_ENABLED = True
-        bot.send_message(message.chat.id, "🤖 Скрипт *включён*", parse_mode="Markdown")
-
-    elif cmd == "/script_off":
-        SCRIPT_ENABLED = False
-        bot.send_message(message.chat.id, "🤖 Скрипт *выключен*", parse_mode="Markdown")
-
-    elif cmd == "/script_status":
-        bot.send_message(
-            message.chat.id,
-            f"🤖 Скрипт сейчас: *{'ВКЛЮЧЕН' if SCRIPT_ENABLED else 'ВЫКЛЮЧЕН'}*",
-            parse_mode="Markdown"
-        )
+@bot.message_handler(commands=["script_status"])
+def script_status_cmd(message):
+    if not is_admin(message.from_user.id):
+        return
+    bot.send_message(
+        message.chat.id,
+        f"🤖 Скрипт сейчас: *{'ВКЛЮЧЕН' if SCRIPT_ENABLED else 'ВЫКЛЮЧЕН'}*",
+        parse_mode="Markdown"
+    )
 
 # =====================
 # СКРИПТ
@@ -191,15 +195,6 @@ def run_script(uid):
 
     script_timers[uid] = threading.Timer(2, step)
     script_timers[uid].start()
-
-# =====================
-# /START
-# =====================
-
-@bot.message_handler(commands=["start"])
-def start_cmd(message):
-    reset_user(message.from_user.id)
-    send_welcome(message.from_user.id)
 
 # =====================
 # ПОИСК
@@ -273,7 +268,7 @@ def next_partner(message):
         run_script(uid)
 
 # =====================
-# ПЕРЕСЫЛКА
+# ПЕРЕСЫЛКА (ПОСЛЕДНИЙ ХЕНДЛЕР!)
 # =====================
 
 @bot.message_handler(
@@ -311,4 +306,4 @@ def relay(message):
 
 if __name__ == "__main__":
     print("🖤 Анонимный чат | 18+ запущен")
-    bot.infinity_polling()
+    bot.infinity_polling(skip_pending=True)
