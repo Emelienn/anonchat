@@ -13,7 +13,7 @@ if not TOKEN:
 bot = telebot.TeleBot(TOKEN)
 WELCOME_IMAGE = "welcome.jpg"
 
-ADMIN_ID = 123456789  # <-- ЗАМЕНИ НА СВОЙ ID
+ADMIN_ID = 7358829982  # <-- ЗАМЕНИ НА СВОЙ ID
 SCRIPT_ENABLED = True
 
 # =====================
