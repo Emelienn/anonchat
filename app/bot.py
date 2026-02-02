@@ -16,13 +16,12 @@ bot = telebot.TeleBot(TOKEN, threaded=True)
 WELCOME_IMAGE = "welcome.jpg"
 
 ADMIN_ID = 7358829982
-SCRIPT_ENABLED = True
 
+SCRIPT_ENABLED = True
 SCRIPT_MESSAGES = [
     "Привет", "привет", "М", "м", "Д?", "Привет м",
     "Хай", "👋🏻", "Мд", "Мд?"
 ]
-
 SILENT_SKIP_CHANCE = 0.3
 
 # =====================
@@ -60,7 +59,7 @@ def chat_menu():
 # ВСПОМОГАТЕЛЬНОЕ
 # =====================
 
-def is_admin(uid):
+def is_admin(uid: int) -> bool:
     return uid == ADMIN_ID
 
 def cancel_script(uid):
@@ -69,9 +68,9 @@ def cancel_script(uid):
         timer.cancel()
 
 def reset_user(uid):
+    cancel_script(uid)
     users[uid] = {"state": "none", "partner_id": None}
     all_users.add(uid)
-    cancel_script(uid)
     if uid in waiting_list:
         waiting_list.remove(uid)
 
@@ -89,20 +88,11 @@ def send_welcome(uid):
         bot.send_message(uid, text, parse_mode="Markdown", reply_markup=main_menu())
 
 # =====================
-# /START
-# =====================
-
-@bot.message_handler(commands=["start"])
-def start_cmd(message):
-    reset_user(message.from_user.id)
-    send_welcome(message.from_user.id)
-
-# =====================
 # АДМИН КОМАНДЫ
 # =====================
 
 @bot.message_handler(commands=["admin"])
-def admin_cmd(message):
+def admin_panel(message):
     if not is_admin(message.from_user.id):
         return
     bot.send_message(
@@ -136,7 +126,7 @@ def stats_cmd(message):
     )
 
 @bot.message_handler(commands=["script_on"])
-def script_on_cmd(message):
+def script_on(message):
     global SCRIPT_ENABLED
     if not is_admin(message.from_user.id):
         return
@@ -144,7 +134,7 @@ def script_on_cmd(message):
     bot.send_message(message.chat.id, "🤖 Скрипт *включён*", parse_mode="Markdown")
 
 @bot.message_handler(commands=["script_off"])
-def script_off_cmd(message):
+def script_off(message):
     global SCRIPT_ENABLED
     if not is_admin(message.from_user.id):
         return
@@ -152,7 +142,7 @@ def script_off_cmd(message):
     bot.send_message(message.chat.id, "🤖 Скрипт *выключен*", parse_mode="Markdown")
 
 @bot.message_handler(commands=["script_status"])
-def script_status_cmd(message):
+def script_status(message):
     if not is_admin(message.from_user.id):
         return
     bot.send_message(
@@ -174,8 +164,7 @@ def run_script(uid):
         return
 
     users[uid]["state"] = "script"
-    if uid in waiting_list:
-        waiting_list.remove(uid)
+    waiting_list.remove(uid)
 
     bot.send_message(uid, "💬 Собеседник найден", reply_markup=chat_menu())
 
@@ -197,7 +186,16 @@ def run_script(uid):
     script_timers[uid].start()
 
 # =====================
-# ПОИСК
+# /START
+# =====================
+
+@bot.message_handler(commands=["start"])
+def start_cmd(message):
+    reset_user(message.from_user.id)
+    send_welcome(message.from_user.id)
+
+# =====================
+# ПОИСК ПАР
 # =====================
 
 def try_find_pair():
@@ -254,7 +252,7 @@ def next_partner(message):
 
     reset_user(uid)
 
-    if pid in users and users[pid]["state"] == "chatting":
+    if pid and users.get(pid, {}).get("state") == "chatting":
         reset_user(pid)
         bot.send_message(pid, "❌ Собеседник переключился", reply_markup=main_menu())
 
@@ -268,7 +266,7 @@ def next_partner(message):
         run_script(uid)
 
 # =====================
-# ПЕРЕСЫЛКА (ПОСЛЕДНИЙ ХЕНДЛЕР!)
+# ПЕРЕСЫЛКА
 # =====================
 
 @bot.message_handler(
@@ -276,8 +274,7 @@ def next_partner(message):
         "text", "photo", "video", "video_note", "voice",
         "audio", "document", "sticker", "animation",
         "location", "contact"
-    ],
-    func=lambda m: not (m.text and m.text.startswith("/"))
+    ]
 )
 def relay(message):
     uid = message.from_user.id
