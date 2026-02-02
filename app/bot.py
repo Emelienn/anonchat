@@ -23,7 +23,7 @@ SCRIPT_MESSAGES = [
     "Хай", "👋🏻", "Мд", "Мд?"
 ]
 
-SILENT_SKIP_CHANCE = 0.3  # 30% молчаливый скип
+SILENT_SKIP_CHANCE = 0.3
 
 # =====================
 # СОСТОЯНИЯ
@@ -31,7 +31,6 @@ SILENT_SKIP_CHANCE = 0.3  # 30% молчаливый скип
 
 users = {}
 waiting_list = []
-reports = {}
 all_users = set()
 script_timers = {}
 
@@ -53,7 +52,6 @@ def chat_menu():
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
     kb.add(
         KeyboardButton("🔄 Следующий собеседник"),
-        KeyboardButton("⚠️ Пожаловаться"),
         KeyboardButton("🚪 Выйти из чата")
     )
     return kb
@@ -94,21 +92,18 @@ def run_script(uid):
         return
     if users.get(uid, {}).get("state") != "waiting":
         return
-    if len(waiting_list) > 1:
+    if len(waiting_list) != 1:
         return
 
-    users[uid]["state"] = "chatting"
-    bot.send_message(uid, "💬 Собеседник найден", reply_markup=chat_menu())
-
     def step():
-        if users.get(uid, {}).get("state") != "chatting":
+        if users.get(uid, {}).get("state") != "waiting":
             return
 
         if random.random() > SILENT_SKIP_CHANCE:
             bot.send_message(uid, random.choice(SCRIPT_MESSAGES))
 
         def skip():
-            if users.get(uid, {}).get("state") == "chatting":
+            if users.get(uid, {}).get("state") == "waiting":
                 reset_user(uid)
                 bot.send_message(uid, "❌ Собеседник переключился", reply_markup=main_menu())
 
@@ -134,6 +129,9 @@ def try_find_pair():
     while len(waiting_list) >= 2:
         u1 = waiting_list.pop(0)
         u2 = waiting_list.pop(0)
+
+        if u1 == u2:
+            continue
 
         if users.get(u1, {}).get("state") != "waiting":
             continue
@@ -164,18 +162,35 @@ def start_dialog(message):
         return
 
     users[uid]["state"] = "waiting"
-    waiting_list.append(uid)
-    bot.send_message(uid, "⏳ Ищем собеседника…", reply_markup=search_menu())
+    if uid not in waiting_list:
+        waiting_list.append(uid)
 
+    bot.send_message(uid, "⏳ Ищем собеседника…", reply_markup=search_menu())
     try_find_pair()
 
-    if SCRIPT_ENABLED and len(waiting_list) == 1:
+    if SCRIPT_ENABLED:
         run_script(uid)
 
-@bot.message_handler(func=lambda m: m.text in ["⛔ Остановить поиск", "🔄 Следующий собеседник", "🚪 Выйти из чата"])
-def stop_any(message):
+@bot.message_handler(func=lambda m: m.text in ["⛔ Остановить поиск", "🚪 Выйти из чата"])
+def stop_search(message):
     reset_user(message.from_user.id)
-    send_welcome(message.from_user.id)
+    bot.send_message(message.from_user.id, "Поиск остановлен", reply_markup=main_menu())
+
+@bot.message_handler(func=lambda m: m.text == "🔄 Следующий собеседник")
+def next_partner(message):
+    uid = message.from_user.id
+    pid = users.get(uid, {}).get("partner_id")
+
+    reset_user(uid)
+    if pid in users:
+        reset_user(pid)
+        bot.send_message(pid, "❌ Собеседник переключился", reply_markup=main_menu())
+
+    users[uid]["state"] = "waiting"
+    waiting_list.append(uid)
+    bot.send_message(uid, "🔄 Ищем нового собеседника…", reply_markup=search_menu())
+    try_find_pair()
+    run_script(uid)
 
 # =====================
 # ПЕРЕСЫЛКА
@@ -187,6 +202,9 @@ def stop_any(message):
     "location", "contact"
 ])
 def relay(message):
+    if message.text and message.text.startswith("/"):
+        return
+
     uid = message.from_user.id
     if users.get(uid, {}).get("state") != "chatting":
         return
@@ -196,13 +214,16 @@ def relay(message):
         return
 
     try:
-        getattr(bot, f"send_{message.content_type}")(
-            pid,
-            getattr(message, message.content_type).file_id
-        ) if message.content_type != "text" else bot.send_message(pid, message.text)
+        if message.content_type == "text":
+            bot.send_message(pid, message.text)
+        else:
+            getattr(bot, f"send_{message.content_type}")(
+                pid,
+                getattr(message, message.content_type).file_id
+            )
     except:
         reset_user(uid)
-        send_welcome(uid)
+        bot.send_message(uid, "⚠️ Диалог завершён", reply_markup=main_menu())
 
 # =====================
 # СТАРТ
