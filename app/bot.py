@@ -141,34 +141,36 @@ def script_off(message):
 @bot.message_handler(commands=["script_status"])
 def script_status(message):
     if is_admin(message.from_user.id):
-        bot.send_message(message.chat.id, f"🤖 Скрипт сейчас: {'ON' if SCRIPT_ENABLED else 'OFF'}")
+        bot.send_message(
+            message.chat.id,
+            f"🤖 Скрипт сейчас: {'ON' if SCRIPT_ENABLED else 'OFF'}"
+        )
 
 # =====================
-# СКРИПТ (ИЗОЛИРОВАН)
+# СКРИПТ (БЕЗ ЛОМАЮЩИХ STATE)
 # =====================
 
 def run_script(uid):
     if not SCRIPT_ENABLED:
+        return
+    if uid in script_timers:
         return
     if users.get(uid, {}).get("state") != "waiting":
         return
     if len(waiting_list) != 1:
         return
 
-    users[uid]["state"] = "script"
-    waiting_list.remove(uid)
-
-    bot.send_message(uid, "💬 Собеседник найден", reply_markup=chat_menu())
-
     def step():
-        if users.get(uid, {}).get("state") != "script":
+        if users.get(uid, {}).get("state") != "waiting":
+            return
+        if len(waiting_list) != 1:
             return
 
         if random.random() > SILENT_SKIP_CHANCE:
             bot.send_message(uid, random.choice(SCRIPT_MESSAGES))
 
         def skip():
-            if users.get(uid, {}).get("state") == "script":
+            if users.get(uid, {}).get("state") == "waiting":
                 reset_user(uid)
                 bot.send_message(uid, "❌ Собеседник переключился", reply_markup=main_menu())
 
@@ -224,7 +226,8 @@ def start_dialog(message):
         return
 
     users[uid]["state"] = "waiting"
-    waiting_list.append(uid)
+    if uid not in waiting_list:
+        waiting_list.append(uid)
 
     bot.send_message(uid, "⏳ Ищем собеседника…", reply_markup=search_menu())
     try_find_pair()
@@ -232,8 +235,37 @@ def start_dialog(message):
     if SCRIPT_ENABLED and len(waiting_list) == 1:
         run_script(uid)
 
+@bot.message_handler(func=lambda m: m.text in ["⛔ Остановить поиск", "🚪 Выйти из чата"])
+def stop_search(message):
+    uid = message.from_user.id
+    cancel_script(uid)
+    reset_user(uid)
+    bot.send_message(uid, "Поиск остановлен", reply_markup=main_menu())
+
+@bot.message_handler(func=lambda m: m.text == "🔄 Следующий собеседник")
+def next_partner(message):
+    uid = message.from_user.id
+    cancel_script(uid)
+
+    pid = users.get(uid, {}).get("partner_id")
+    reset_user(uid)
+
+    if pid and users.get(pid, {}).get("state") == "chatting":
+        cancel_script(pid)
+        reset_user(pid)
+        bot.send_message(pid, "❌ Собеседник переключился", reply_markup=main_menu())
+
+    users[uid]["state"] = "waiting"
+    waiting_list.append(uid)
+
+    bot.send_message(uid, "🔄 Ищем нового собеседника…", reply_markup=search_menu())
+    try_find_pair()
+
+    if SCRIPT_ENABLED and len(waiting_list) == 1:
+        run_script(uid)
+
 # =====================
-# ПЕРЕСЫЛКА (БЕЗ КОМАНД)
+# ПЕРЕСЫЛКА (КОМАНДЫ НЕ ТРОГАЕМ)
 # =====================
 
 @bot.message_handler(
@@ -242,10 +274,11 @@ def start_dialog(message):
         "audio", "document", "sticker", "animation",
         "location", "contact"
     ],
-    func=lambda m: not (m.text and m.text.startswith("/"))
+    func=lambda m: m.text is None or not m.text.startswith("/")
 )
 def relay(message):
     uid = message.from_user.id
+
     if users.get(uid, {}).get("state") != "chatting":
         return
 
@@ -258,9 +291,11 @@ def relay(message):
             bot.send_message(pid, message.text)
         else:
             getattr(bot, f"send_{message.content_type}")(
-                pid, getattr(message, message.content_type).file_id
+                pid,
+                getattr(message, message.content_type).file_id
             )
     except:
+        cancel_script(uid)
         reset_user(uid)
         bot.send_message(uid, "⚠️ Диалог завершён", reply_markup=main_menu())
 
