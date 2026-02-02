@@ -123,7 +123,11 @@ def stats_cmd(message):
 # 🔥 COMMAND ROUTER (КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ)
 # =====================
 
-@bot.message_handler(func=lambda m: m.text and m.text.startswith("/"))
+@bot.message_handler(
+    func=lambda m: m.text 
+    and m.text.startswith("/") 
+    and not m.text.startswith("/start")
+)
 def command_router(message):
     if not is_admin(message.from_user.id):
         return
