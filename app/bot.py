@@ -11,7 +11,10 @@ if not TOKEN:
     raise RuntimeError("BOT_TOKEN is not set")
 
 bot = telebot.TeleBot(TOKEN)
-WELCOME_IMAGE = "welcome.jpg"  # 640x360
+WELCOME_IMAGE = "welcome.jpg"
+
+ADMIN_ID = 123456789  # <-- ЗАМЕНИ НА СВОЙ ID
+SCRIPT_ENABLED = True
 
 # =====================
 # СОСТОЯНИЯ
@@ -20,6 +23,7 @@ WELCOME_IMAGE = "welcome.jpg"  # 640x360
 users = {}
 waiting_list = []
 reports = {}
+all_users = set()
 
 # =====================
 # КЛАВИАТУРЫ
@@ -30,12 +34,10 @@ def main_menu():
     kb.add(KeyboardButton("🚀 Начать диалог"))
     return kb
 
-
 def search_menu():
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
     kb.add(KeyboardButton("⛔ Остановить поиск"))
     return kb
-
 
 def chat_menu():
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
@@ -52,26 +54,18 @@ def chat_menu():
 
 def reset_user(user_id):
     users[user_id] = {"state": "none", "partner_id": None}
-
+    all_users.add(user_id)
 
 def send_welcome(chat_id):
     text = (
         "🖤 *Анонимный чат | 18+*\n\n"
         "Ты полностью анонимен.\n"
-        "Без имён. Без истории.\n"
-        "Только диалог 1 на 1.\n\n"
+        "Без имён. Без истории.\n\n"
         "Нажми кнопку ниже, чтобы начать 💎"
     )
-
     try:
         with open(WELCOME_IMAGE, "rb") as photo:
-            bot.send_photo(
-                chat_id,
-                photo,
-                caption=text,
-                parse_mode="Markdown",
-                reply_markup=main_menu()
-            )
+            bot.send_photo(chat_id, photo, caption=text, parse_mode="Markdown", reply_markup=main_menu())
     except:
         bot.send_message(chat_id, text, parse_mode="Markdown", reply_markup=main_menu())
 
@@ -85,7 +79,71 @@ def start_cmd(message):
     send_welcome(message.from_user.id)
 
 # =====================
-# ПОИСК
+# АДМИН-КОМАНДЫ
+# =====================
+
+def is_admin(uid):
+    return uid == ADMIN_ID
+
+@bot.message_handler(commands=["admin"])
+def admin_panel(message):
+    if not is_admin(message.from_user.id):
+        return
+    bot.send_message(
+        message.chat.id,
+        "🛠 Админ-панель\n\n"
+        "/stats — статистика\n"
+        "/script_on — включить скрипт\n"
+        "/script_off — выключить скрипт\n"
+        "/script_status — статус скрипта"
+    )
+
+@bot.message_handler(commands=["stats"])
+def stats_cmd(message):
+    if not is_admin(message.from_user.id):
+        return
+
+    online = sum(1 for u in users.values() if u["state"] != "none")
+    searching = sum(1 for u in users.values() if u["state"] == "waiting")
+    chatting = sum(1 for u in users.values() if u["state"] == "chatting")
+
+    bot.send_message(
+        message.chat.id,
+        f"📊 Статистика\n\n"
+        f"👥 Всего пользователей: {len(all_users)}\n"
+        f"🟢 Онлайн сейчас: {online}\n"
+        f"🔍 В поиске: {searching}\n"
+        f"💬 В чате: {chatting}\n\n"
+        f"🤖 Скрипт: {'ВКЛЮЧЕН' if SCRIPT_ENABLED else 'ВЫКЛЮЧЕН'}"
+    )
+
+@bot.message_handler(commands=["script_on"])
+def script_on(message):
+    global SCRIPT_ENABLED
+    if not is_admin(message.from_user.id):
+        return
+    SCRIPT_ENABLED = True
+    bot.send_message(message.chat.id, "🤖 Скрипт включён")
+
+@bot.message_handler(commands=["script_off"])
+def script_off(message):
+    global SCRIPT_ENABLED
+    if not is_admin(message.from_user.id):
+        return
+    SCRIPT_ENABLED = False
+    bot.send_message(message.chat.id, "🤖 Скрипт выключен")
+
+@bot.message_handler(commands=["script_status"])
+def script_status(message):
+    if not is_admin(message.from_user.id):
+        return
+    bot.send_message(
+        message.chat.id,
+        f"🤖 Скрипт сейчас: {'ВКЛЮЧЕН' if SCRIPT_ENABLED else 'ВЫКЛЮЧЕН'}"
+    )
+
+# =====================
+# ПОИСК СОБЕСЕДНИКА
 # =====================
 
 def try_find_pair():
@@ -113,6 +171,7 @@ def try_find_pair():
 def start_dialog(message):
     uid = message.from_user.id
     users.setdefault(uid, {"state": "none", "partner_id": None})
+    all_users.add(uid)
 
     if users[uid]["state"] != "none":
         return
@@ -122,7 +181,6 @@ def start_dialog(message):
     bot.send_message(uid, "⏳ Ищем собеседника…", reply_markup=search_menu())
     try_find_pair()
 
-
 @bot.message_handler(func=lambda m: m.text == "⛔ Остановить поиск")
 def stop_search(message):
     uid = message.from_user.id
@@ -131,7 +189,6 @@ def stop_search(message):
             waiting_list.remove(uid)
         reset_user(uid)
         send_welcome(uid)
-
 
 @bot.message_handler(func=lambda m: m.text == "🔄 Следующий собеседник")
 def next_partner(message):
@@ -151,7 +208,6 @@ def next_partner(message):
     bot.send_message(uid, "🔄 Ищем нового собеседника…", reply_markup=search_menu())
     try_find_pair()
 
-
 @bot.message_handler(func=lambda m: m.text == "🚪 Выйти из чата")
 def leave_chat(message):
     uid = message.from_user.id
@@ -163,7 +219,6 @@ def leave_chat(message):
     if pid in users and users[pid]["state"] == "chatting":
         reset_user(pid)
         bot.send_message(pid, "❌ Собеседник покинул чат", reply_markup=main_menu())
-
 
 @bot.message_handler(func=lambda m: m.text == "⚠️ Пожаловаться")
 def report_user(message):
