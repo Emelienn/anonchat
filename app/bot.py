@@ -150,7 +150,7 @@ def script_status(message):
         )
 
 # =====================
-# СКРИПТ (ИСПРАВЛЕН)
+# СКРИПТ
 # =====================
 
 def run_script(uid):
@@ -161,12 +161,10 @@ def run_script(uid):
     if len(waiting_list) != 1:
         return
 
-    # 🔒 изолируем пользователя
     users[uid]["state"] = "script"
     if uid in waiting_list:
         waiting_list.remove(uid)
 
-    # ✅ уведомление как у реального мэтча
     bot.send_message(uid, "💬 Собеседник найден", reply_markup=chat_menu())
 
     def step():
@@ -267,18 +265,18 @@ def next_partner(message):
         run_script(uid)
 
 # =====================
-# ПЕРЕСЫЛКА
+# ПЕРЕСЫЛКА (ИСПРАВЛЕНО)
 # =====================
 
-@bot.message_handler(content_types=[
-    "text", "photo", "video", "video_note", "voice",
-    "audio", "document", "sticker", "animation",
-    "location", "contact"
-])
+@bot.message_handler(
+    content_types=[
+        "text", "photo", "video", "video_note", "voice",
+        "audio", "document", "sticker", "animation",
+        "location", "contact"
+    ],
+    func=lambda m: not (m.text and m.text.startswith("/"))
+)
 def relay(message):
-    if message.text and message.text.startswith("/"):
-        return
-
     uid = message.from_user.id
     if users.get(uid, {}).get("state") != "chatting":
         return
@@ -297,12 +295,12 @@ def relay(message):
             )
     except:
         reset_user(uid)
-        bot.send_message(uid, "⚠️ Диалог завершён", reply_markup=main_menu())
+        bot.send_message(uid, "❌ Диалог завершён", reply_markup=main_menu())
 
 # =====================
 # СТАРТ
 # =====================
 
 if __name__ == "__main__":
-    print("🕶 Анонимный чат | 18+ запущен")
+    print("🖤 Анонимный чат | 18+ запущен")
     bot.infinity_polling()
