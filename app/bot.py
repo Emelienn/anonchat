@@ -130,21 +130,23 @@ def command_router(message):
 
     global SCRIPT_ENABLED
 
-    if message.text == "/admin":
+    cmd = message.text.split("@")[0]  # ← ВАЖНО
+
+    if cmd == "/admin":
         admin_panel(message)
 
-    elif message.text == "/stats":
+    elif cmd == "/stats":
         stats_cmd(message)
 
-    elif message.text == "/script_on":
+    elif cmd == "/script_on":
         SCRIPT_ENABLED = True
         bot.send_message(message.chat.id, "🤖 Скрипт *включён*", parse_mode="Markdown")
 
-    elif message.text == "/script_off":
+    elif cmd == "/script_off":
         SCRIPT_ENABLED = False
         bot.send_message(message.chat.id, "🤖 Скрипт *выключен*", parse_mode="Markdown")
 
-    elif message.text == "/script_status":
+    elif cmd == "/script_status":
         bot.send_message(
             message.chat.id,
             f"🤖 Скрипт сейчас: *{'ВКЛЮЧЕН' if SCRIPT_ENABLED else 'ВЫКЛЮЧЕН'}*",
