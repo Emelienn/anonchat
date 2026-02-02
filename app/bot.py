@@ -12,7 +12,7 @@ TOKEN = os.getenv("BOT_TOKEN")
 if not TOKEN:
     raise RuntimeError("BOT_TOKEN is not set")
 
-bot = telebot.TeleBot(TOKEN, threaded=True)
+bot = telebot.TeleBot(TOKEN)  # ⬅️ БЕЗ threaded=True
 WELCOME_IMAGE = "welcome.jpg"
 
 ADMIN_ID = 7358829982
@@ -88,66 +88,58 @@ def send_welcome(uid):
         bot.send_message(uid, text, parse_mode="Markdown", reply_markup=main_menu())
 
 # =====================
-# АДМИН
+# 🔥 COMMAND ROUTER (КЛЮЧ)
 # =====================
 
-@bot.message_handler(commands=["admin"])
-def admin_panel(message):
-    if not is_admin(message.from_user.id):
-        return
-    bot.send_message(
-        message.chat.id,
-        "🛠 *Админ-панель*\n\n"
-        "/stats\n"
-        "/script_on\n"
-        "/script_off\n"
-        "/script_status",
-        parse_mode="Markdown"
-    )
+@bot.message_handler(func=lambda m: m.text and m.text.startswith("/"))
+def command_router(message):
+    uid = message.from_user.id
+    cmd = message.text.split()[0]
 
-@bot.message_handler(commands=["stats"])
-def stats_cmd(message):
-    if not is_admin(message.from_user.id):
-        return
+    if cmd == "/start":
+        reset_user(uid)
+        send_welcome(uid)
 
-    online = sum(1 for u in users.values() if u["state"] != "none")
-    searching = sum(1 for u in users.values() if u["state"] == "waiting")
-    chatting = sum(1 for u in users.values() if u["state"] == "chatting")
-
-    bot.send_message(
-        message.chat.id,
-        f"📊 Статистика\n\n"
-        f"👥 Всего пользователей: {len(all_users)}\n"
-        f"🟢 Онлайн: {online}\n"
-        f"🔍 В поиске: {searching}\n"
-        f"💬 В чате: {chatting}\n"
-        f"🤖 Скрипт: {'ON' if SCRIPT_ENABLED else 'OFF'}"
-    )
-
-@bot.message_handler(commands=["script_on"])
-def script_on(message):
-    global SCRIPT_ENABLED
-    if is_admin(message.from_user.id):
-        SCRIPT_ENABLED = True
-        bot.send_message(message.chat.id, "🤖 Скрипт ВКЛЮЧЕН")
-
-@bot.message_handler(commands=["script_off"])
-def script_off(message):
-    global SCRIPT_ENABLED
-    if is_admin(message.from_user.id):
-        SCRIPT_ENABLED = False
-        bot.send_message(message.chat.id, "🤖 Скрипт ВЫКЛЮЧЕН")
-
-@bot.message_handler(commands=["script_status"])
-def script_status(message):
-    if is_admin(message.from_user.id):
+    elif cmd == "/admin" and is_admin(uid):
         bot.send_message(
-            message.chat.id,
-            f"🤖 Скрипт сейчас: {'ON' if SCRIPT_ENABLED else 'OFF'}"
+            uid,
+            "🛠 *Админ-панель*\n\n"
+            "/stats\n"
+            "/script_on\n"
+            "/script_off\n"
+            "/script_status",
+            parse_mode="Markdown"
         )
 
+    elif cmd == "/stats" and is_admin(uid):
+        online = sum(1 for u in users.values() if u["state"] != "none")
+        searching = sum(1 for u in users.values() if u["state"] == "waiting")
+        chatting = sum(1 for u in users.values() if u["state"] == "chatting")
+
+        bot.send_message(
+            uid,
+            f"📊 Статистика\n\n"
+            f"👥 Всего пользователей: {len(all_users)}\n"
+            f"🟢 Онлайн: {online}\n"
+            f"🔍 В поиске: {searching}\n"
+            f"💬 В чате: {chatting}\n"
+            f"🤖 Скрипт: {'ON' if SCRIPT_ENABLED else 'OFF'}"
+        )
+
+    elif cmd == "/script_on" and is_admin(uid):
+        global SCRIPT_ENABLED
+        SCRIPT_ENABLED = True
+        bot.send_message(uid, "🤖 Скрипт ВКЛЮЧЕН")
+
+    elif cmd == "/script_off" and is_admin(uid):
+        SCRIPT_ENABLED = False
+        bot.send_message(uid, "🤖 Скрипт ВЫКЛЮЧЕН")
+
+    elif cmd == "/script_status" and is_admin(uid):
+        bot.send_message(uid, f"🤖 Скрипт сейчас: {'ON' if SCRIPT_ENABLED else 'OFF'}")
+
 # =====================
-# СКРИПТ (БЕЗ ЛОМАЮЩИХ STATE)
+# СКРИПТ
 # =====================
 
 def run_script(uid):
@@ -162,8 +154,6 @@ def run_script(uid):
 
     def step():
         if users.get(uid, {}).get("state") != "waiting":
-            return
-        if len(waiting_list) != 1:
             return
 
         if random.random() > SILENT_SKIP_CHANCE:
@@ -180,13 +170,31 @@ def run_script(uid):
     script_timers[uid].start()
 
 # =====================
-# /START
+# КНОПКИ
 # =====================
 
-@bot.message_handler(commands=["start"])
-def start_cmd(message):
+@bot.message_handler(func=lambda m: m.text == "🚀 Начать диалог")
+def start_dialog(message):
+    uid = message.from_user.id
+    users.setdefault(uid, {"state": "none", "partner_id": None})
+    all_users.add(uid)
+
+    if users[uid]["state"] != "none":
+        return
+
+    users[uid]["state"] = "waiting"
+    waiting_list.append(uid)
+
+    bot.send_message(uid, "⏳ Ищем собеседника…", reply_markup=search_menu())
+    try_find_pair()
+
+    if SCRIPT_ENABLED and len(waiting_list) == 1:
+        run_script(uid)
+
+@bot.message_handler(func=lambda m: m.text in ["⛔ Остановить поиск", "🚪 Выйти из чата"])
+def stop_search(message):
     reset_user(message.from_user.id)
-    send_welcome(message.from_user.id)
+    bot.send_message(message.from_user.id, "Поиск остановлен", reply_markup=main_menu())
 
 # =====================
 # ПОИСК
@@ -213,91 +221,24 @@ def try_find_pair():
         bot.send_message(u2, "💬 Собеседник найден", reply_markup=chat_menu())
 
 # =====================
-# КНОПКИ
+# ПЕРЕСЫЛКА
 # =====================
 
-@bot.message_handler(func=lambda m: m.text == "🚀 Начать диалог")
-def start_dialog(message):
-    uid = message.from_user.id
-    users.setdefault(uid, {"state": "none", "partner_id": None})
-    all_users.add(uid)
-
-    if users[uid]["state"] != "none":
+@bot.message_handler(content_types=[
+    "text", "photo", "video", "voice",
+    "document", "sticker"
+])
+def relay(message):
+    if message.text and message.text.startswith("/"):
         return
 
-    users[uid]["state"] = "waiting"
-    if uid not in waiting_list:
-        waiting_list.append(uid)
-
-    bot.send_message(uid, "⏳ Ищем собеседника…", reply_markup=search_menu())
-    try_find_pair()
-
-    if SCRIPT_ENABLED and len(waiting_list) == 1:
-        run_script(uid)
-
-@bot.message_handler(func=lambda m: m.text in ["⛔ Остановить поиск", "🚪 Выйти из чата"])
-def stop_search(message):
     uid = message.from_user.id
-    cancel_script(uid)
-    reset_user(uid)
-    bot.send_message(uid, "Поиск остановлен", reply_markup=main_menu())
-
-@bot.message_handler(func=lambda m: m.text == "🔄 Следующий собеседник")
-def next_partner(message):
-    uid = message.from_user.id
-    cancel_script(uid)
-
-    pid = users.get(uid, {}).get("partner_id")
-    reset_user(uid)
-
-    if pid and users.get(pid, {}).get("state") == "chatting":
-        cancel_script(pid)
-        reset_user(pid)
-        bot.send_message(pid, "❌ Собеседник переключился", reply_markup=main_menu())
-
-    users[uid]["state"] = "waiting"
-    waiting_list.append(uid)
-
-    bot.send_message(uid, "🔄 Ищем нового собеседника…", reply_markup=search_menu())
-    try_find_pair()
-
-    if SCRIPT_ENABLED and len(waiting_list) == 1:
-        run_script(uid)
-
-# =====================
-# ПЕРЕСЫЛКА (КОМАНДЫ НЕ ТРОГАЕМ)
-# =====================
-
-@bot.message_handler(
-    content_types=[
-        "text", "photo", "video", "video_note", "voice",
-        "audio", "document", "sticker", "animation",
-        "location", "contact"
-    ],
-    func=lambda m: m.text is None or not m.text.startswith("/")
-)
-def relay(message):
-    uid = message.from_user.id
-
     if users.get(uid, {}).get("state") != "chatting":
         return
 
     pid = users[uid]["partner_id"]
-    if not pid:
-        return
-
-    try:
-        if message.content_type == "text":
-            bot.send_message(pid, message.text)
-        else:
-            getattr(bot, f"send_{message.content_type}")(
-                pid,
-                getattr(message, message.content_type).file_id
-            )
-    except:
-        cancel_script(uid)
-        reset_user(uid)
-        bot.send_message(uid, "⚠️ Диалог завершён", reply_markup=main_menu())
+    if pid:
+        bot.copy_message(pid, uid, message.message_id)
 
 # =====================
 # СТАРТ
@@ -305,4 +246,4 @@ def relay(message):
 
 if __name__ == "__main__":
     print("🖤 Анонимный чат | 18+ запущен")
-    bot.infinity_polling(skip_pending=True)
+    bot.infinity_polling()
