@@ -60,6 +60,9 @@ def chat_menu():
 # ВСПОМОГАТЕЛЬНОЕ
 # =====================
 
+def is_admin(uid):
+    return uid == ADMIN_ID
+
 def cancel_script(uid):
     timer = script_timers.pop(uid, None)
     if timer:
@@ -86,16 +89,10 @@ def send_welcome(uid):
         bot.send_message(uid, text, parse_mode="Markdown", reply_markup=main_menu())
 
 # =====================
-# АДМИН
+# АДМИН ФУНКЦИИ
 # =====================
 
-def is_admin(uid):
-    return uid == ADMIN_ID
-
-@bot.message_handler(commands=["admin"])
 def admin_panel(message):
-    if not is_admin(message.from_user.id):
-        return
     bot.send_message(
         message.chat.id,
         "🛠 *Админ-панель*\n\n"
@@ -106,11 +103,7 @@ def admin_panel(message):
         parse_mode="Markdown"
     )
 
-@bot.message_handler(commands=["stats"])
 def stats_cmd(message):
-    if not is_admin(message.from_user.id):
-        return
-
     online = sum(1 for u in users.values() if u["state"] != "none")
     searching = sum(1 for u in users.values() if u["state"] == "waiting")
     chatting = sum(1 for u in users.values() if u["state"] == "chatting")
@@ -126,23 +119,32 @@ def stats_cmd(message):
         parse_mode="Markdown"
     )
 
-@bot.message_handler(commands=["script_on"])
-def script_on(message):
+# =====================
+# 🔥 COMMAND ROUTER (КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ)
+# =====================
+
+@bot.message_handler(func=lambda m: m.text and m.text.startswith("/"))
+def command_router(message):
+    if not is_admin(message.from_user.id):
+        return
+
     global SCRIPT_ENABLED
-    if is_admin(message.from_user.id):
+
+    if message.text == "/admin":
+        admin_panel(message)
+
+    elif message.text == "/stats":
+        stats_cmd(message)
+
+    elif message.text == "/script_on":
         SCRIPT_ENABLED = True
         bot.send_message(message.chat.id, "🤖 Скрипт *включён*", parse_mode="Markdown")
 
-@bot.message_handler(commands=["script_off"])
-def script_off(message):
-    global SCRIPT_ENABLED
-    if is_admin(message.from_user.id):
+    elif message.text == "/script_off":
         SCRIPT_ENABLED = False
         bot.send_message(message.chat.id, "🤖 Скрипт *выключен*", parse_mode="Markdown")
 
-@bot.message_handler(commands=["script_status"])
-def script_status(message):
-    if is_admin(message.from_user.id):
+    elif message.text == "/script_status":
         bot.send_message(
             message.chat.id,
             f"🤖 Скрипт сейчас: *{'ВКЛЮЧЕН' if SCRIPT_ENABLED else 'ВЫКЛЮЧЕН'}*",
@@ -265,7 +267,7 @@ def next_partner(message):
         run_script(uid)
 
 # =====================
-# ПЕРЕСЫЛКА (ИСПРАВЛЕНО)
+# ПЕРЕСЫЛКА
 # =====================
 
 @bot.message_handler(
