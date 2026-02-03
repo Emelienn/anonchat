@@ -60,17 +60,17 @@ def chat_menu():
 # ВСПОМОГАТЕЛЬНОЕ
 # =====================
 
+def cancel_script(uid):
+    timer = script_timers.pop(uid, None)
+    if timer:
+        timer.cancel()
+
 def reset_user(uid):
     users[uid] = {"state": "none", "partner_id": None}
     all_users.add(uid)
     cancel_script(uid)
     if uid in waiting_list:
         waiting_list.remove(uid)
-
-def cancel_script(uid):
-    timer = script_timers.pop(uid, None)
-    if timer:
-        timer.cancel()
 
 def send_welcome(uid):
     text = (
@@ -98,7 +98,12 @@ def admin_panel(message):
         return
     bot.send_message(
         message.chat.id,
-        "/stats\n/script_on\n/script_off\n/script_status"
+        "🛠 *Админ-панель*\n\n"
+        "/stats — статистика\n"
+        "/script_on — включить скрипт\n"
+        "/script_off — выключить скрипт\n"
+        "/script_status — статус",
+        parse_mode="Markdown"
     )
 
 @bot.message_handler(commands=["stats"])
@@ -112,40 +117,40 @@ def stats_cmd(message):
 
     bot.send_message(
         message.chat.id,
+        "📊 *Статистика бота*\n\n"
         f"👥 Всего пользователей: {len(all_users)}\n"
-        f"🟢 Онлайн: {online}\n"
+        f"🟢 Онлайн сейчас: {online}\n"
         f"🔍 В поиске: {searching}\n"
-        f"💬 В чате: {chatting}\n"
-        f"🤖 Скрипт: {'ON' if SCRIPT_ENABLED else 'OFF'}"
+        f"💬 В чате: {chatting}\n\n"
+        f"🤖 Скрипт: {'ВКЛЮЧЕН' if SCRIPT_ENABLED else 'ВЫКЛЮЧЕН'}",
+        parse_mode="Markdown"
     )
 
 @bot.message_handler(commands=["script_on"])
 def script_on(message):
     global SCRIPT_ENABLED
-    if not is_admin(message.from_user.id):
-        return
-    SCRIPT_ENABLED = True
-    bot.send_message(message.chat.id, "🤖 Скрипт ВКЛЮЧЕН")
+    if is_admin(message.from_user.id):
+        SCRIPT_ENABLED = True
+        bot.send_message(message.chat.id, "🤖 Скрипт *включён*", parse_mode="Markdown")
 
 @bot.message_handler(commands=["script_off"])
 def script_off(message):
     global SCRIPT_ENABLED
-    if not is_admin(message.from_user.id):
-        return
-    SCRIPT_ENABLED = False
-    bot.send_message(message.chat.id, "🤖 Скрипт ВЫКЛЮЧЕН")
+    if is_admin(message.from_user.id):
+        SCRIPT_ENABLED = False
+        bot.send_message(message.chat.id, "🤖 Скрипт *выключен*", parse_mode="Markdown")
 
 @bot.message_handler(commands=["script_status"])
 def script_status(message):
-    if not is_admin(message.from_user.id):
-        return
-    bot.send_message(
-        message.chat.id,
-        f"🤖 Скрипт сейчас: {'ON' if SCRIPT_ENABLED else 'OFF'}"
-    )
+    if is_admin(message.from_user.id):
+        bot.send_message(
+            message.chat.id,
+            f"🤖 Скрипт сейчас: *{'ВКЛЮЧЕН' if SCRIPT_ENABLED else 'ВЫКЛЮЧЕН'}*",
+            parse_mode="Markdown"
+        )
 
 # =====================
-# СКРИПТ
+# СКРИПТ (ИСПРАВЛЕН)
 # =====================
 
 def run_script(uid):
@@ -156,17 +161,23 @@ def run_script(uid):
     if len(waiting_list) != 1:
         return
 
+    # 🔒 изолируем пользователя
+    users[uid]["state"] = "script"
+    if uid in waiting_list:
+        waiting_list.remove(uid)
+
+    # ✅ уведомление как у реального мэтча
+    bot.send_message(uid, "💬 Собеседник найден", reply_markup=chat_menu())
+
     def step():
-        if users.get(uid, {}).get("state") != "waiting":
-            return
-        if len(waiting_list) != 1:
+        if users.get(uid, {}).get("state") != "script":
             return
 
         if random.random() > SILENT_SKIP_CHANCE:
             bot.send_message(uid, random.choice(SCRIPT_MESSAGES))
 
         def skip():
-            if users.get(uid, {}).get("state") == "waiting":
+            if users.get(uid, {}).get("state") == "script":
                 reset_user(uid)
                 bot.send_message(uid, "❌ Собеседник переключился", reply_markup=main_menu())
 
@@ -192,10 +203,6 @@ def try_find_pair():
     while len(waiting_list) >= 2:
         u1 = waiting_list.pop(0)
         u2 = waiting_list.pop(0)
-
-        if u1 == u2:
-            waiting_list.append(u1)
-            continue
 
         if users.get(u1, {}).get("state") != "waiting":
             continue
@@ -226,8 +233,7 @@ def start_dialog(message):
         return
 
     users[uid]["state"] = "waiting"
-    if uid not in waiting_list:
-        waiting_list.append(uid)
+    waiting_list.append(uid)
 
     bot.send_message(uid, "⏳ Ищем собеседника…", reply_markup=search_menu())
     try_find_pair()
@@ -291,7 +297,7 @@ def relay(message):
             )
     except:
         reset_user(uid)
-        bot.send_message(uid, "⚠️ Диалог завершён", reply_markup=main_menu())
+        bot.send_message(uid, "❌ Диалог завершён", reply_markup=main_menu())
 
 # =====================
 # СТАРТ
