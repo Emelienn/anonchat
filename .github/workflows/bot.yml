@@ -22,17 +22,8 @@ jobs:
           pip install --upgrade pip
           pip install pyTelegramBotAPI
 
-      - name: Run bot in background
+      - name: Run bot (foreground polling)
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
         run: |
-          echo "Starting bot..."
-          python app/bot.py &
-          BOT_PID=$!
-          echo "Bot PID: $BOT_PID"
-
-          echo "Keeping workflow alive"
-          while true; do
-            echo "Bot still running at $(date)"
-            sleep 30
-          done
+          python app/bot.py
