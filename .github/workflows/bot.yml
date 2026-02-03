@@ -22,8 +22,9 @@ jobs:
           pip install --upgrade pip
           pip install pyTelegramBotAPI
 
-      - name: Run bot (foreground polling)
+      - name: Run bot (correct cwd)
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+        working-directory: app
         run: |
-          python app/bot.py
+          python bot.py
