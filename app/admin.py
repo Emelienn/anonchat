@@ -15,12 +15,11 @@ def register_admin_handlers(bot, ADMIN_ID_ref, SCRIPT_ENABLED_ref, users, all_us
     def show_admin_panel(chat_id):
         bot.send_message(
             chat_id,
-            "🛠 *Админ-панель*\n\n"
+            "🛠 Админ-панель\n\n"
             "/stats — статистика\n"
             "/script_on — включить скрипт\n"
             "/script_off — выключить скрипт\n"
             "/script_status — статус",
-            parse_mode="Markdown",
             reply_markup=admin_menu()
         )
 
@@ -49,13 +48,12 @@ def register_admin_handlers(bot, ADMIN_ID_ref, SCRIPT_ENABLED_ref, users, all_us
 
         bot.send_message(
             message.chat.id,
-            "📊 *Статистика бота*\n\n"
+            "📊 Статистика бота\n\n"
             f"👥 Всего пользователей: {len(all_users)}\n"
             f"🟢 Онлайн сейчас: {online}\n"
             f"🔍 В поиске: {searching}\n"
             f"💬 В чате: {chatting}\n\n"
             f"🤖 Скрипт: {'ВКЛЮЧЕН' if SCRIPT_ENABLED_ref() else 'ВЫКЛЮЧЕН'}",
-            parse_mode="Markdown",
             reply_markup=admin_menu()
         )
 
@@ -71,8 +69,7 @@ def register_admin_handlers(bot, ADMIN_ID_ref, SCRIPT_ENABLED_ref, users, all_us
         SCRIPT_ENABLED_ref(True)
         bot.send_message(
             message.chat.id,
-            "🤖 Скрипт *включён*",
-            parse_mode="Markdown",
+            "🤖 Скрипт включён",
             reply_markup=admin_menu()
         )
 
@@ -88,8 +85,7 @@ def register_admin_handlers(bot, ADMIN_ID_ref, SCRIPT_ENABLED_ref, users, all_us
         SCRIPT_ENABLED_ref(False)
         bot.send_message(
             message.chat.id,
-            "🤖 Скрипт *выключен*",
-            parse_mode="Markdown",
+            "🤖 Скрипт выключен",
             reply_markup=admin_menu()
         )
 
@@ -104,8 +100,7 @@ def register_admin_handlers(bot, ADMIN_ID_ref, SCRIPT_ENABLED_ref, users, all_us
 
         bot.send_message(
             message.chat.id,
-            f"🤖 Скрипт сейчас: *{'ВКЛЮЧЕН' if SCRIPT_ENABLED_ref() else 'ВЫКЛЮЧЕН'}*",
-            parse_mode="Markdown",
+            f"🤖 Скрипт сейчас: {'ВКЛЮЧЕН' if SCRIPT_ENABLED_ref() else 'ВЫКЛЮЧЕН'}",
             reply_markup=admin_menu()
         )
 
