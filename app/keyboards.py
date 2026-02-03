@@ -20,21 +20,5 @@ def chat_menu():
         KeyboardButton("🔄 Следующий собеседник"),
         KeyboardButton("🚪 Выйти из чата")
     )
-    return kb
-
-# =====================
-# АДМИН-КЛАВИАТУРЫ
-# =====================
-
-def admin_menu():
-    kb = ReplyKeyboardMarkup(resize_keyboard=True)
-    kb.add(
-        KeyboardButton("/stats"),
-        KeyboardButton("/script_status")
-    )
-    kb.add(
-        KeyboardButton("/script_on"),
-        KeyboardButton("/script_off")
-    )
-    kb.add(KeyboardButton("⬅️ Назад"))
+    kb.add(KeyboardButton("⚠️ Пожаловаться"))
     return kb
