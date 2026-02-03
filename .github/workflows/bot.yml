@@ -6,7 +6,7 @@ on:
 jobs:
   run-bot:
     runs-on: ubuntu-latest
-    timeout-minutes: 360  # максимум, что GitHub даст (~6 часов)
+    timeout-minutes: 360
 
     steps:
       - name: Checkout repo
@@ -26,4 +26,4 @@ jobs:
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
         run: |
-          python app/bot.py
+          python bot.py
