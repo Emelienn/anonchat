@@ -30,12 +30,12 @@ def chat_menu():
 def admin_menu():
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
     kb.add(
-        KeyboardButton("Статистика"),
-        KeyboardButton("Статус скрипта")
+        KeyboardButton("/stats"),
+        KeyboardButton("/script_status")
     )
     kb.add(
-        KeyboardButton("Вкючить"),
-        KeyboardButton("Выключить")
+        KeyboardButton("/script_on"),
+        KeyboardButton("/script_off")
     )
     kb.add(KeyboardButton("⬅️ Назад"))
     return kb
