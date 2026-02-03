@@ -258,7 +258,7 @@ def relay(message):
 
 if __name__ == "__main__":
     print("🖤 Анонимный чат | 18+ запущен")
-    bot.remove_webhook(drop_pending_updates=True)
+    bot.remove_webhook()
 
     while True:
         try:
