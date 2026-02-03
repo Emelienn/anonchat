@@ -95,7 +95,9 @@ def is_admin(uid):
     except:
         return False
 
-@bot.message_handler(commands=["admin"])
+BOT_USERNAME = bot.get_me().username  # ← ДОБАВЛЕНО
+
+@bot.message_handler(commands=["admin", f"admin@{BOT_USERNAME}"])  # ← ИСПРАВЛЕНО
 def admin_panel(message):
     if not is_admin(message.from_user.id):
         return
