@@ -9,25 +9,40 @@ def register_admin_handlers(bot, ADMIN_ID_ref, SCRIPT_ENABLED_ref, users, all_us
             return False
 
     # =====================
-    # /admin
+    # ОБЩИЙ ВЫВОД АДМИНКИ
     # =====================
 
-    @bot.message_handler(commands=["admin"])
-    def admin_panel(message):
-        if not is_admin(message.from_user.id):
-            return
-
+    def show_admin_panel(chat_id):
         bot.send_message(
-            message.chat.id,
+            chat_id,
             "🛠 *Админ-панель*\n\n"
-            "Доступные команды:\n"
             "/stats — статистика\n"
             "/script_on — включить скрипт\n"
             "/script_off — выключить скрипт\n"
-            "/script_status — статус скрипта",
+            "/script_status — статус",
             parse_mode="Markdown",
             reply_markup=admin_menu()
         )
+
+    # =====================
+    # /admin (КОМАНДА)
+    # =====================
+
+    @bot.message_handler(commands=["admin"])
+    def admin_panel_cmd(message):
+        if not is_admin(message.from_user.id):
+            return
+        show_admin_panel(message.chat.id)
+
+    # =====================
+    # /admin (ТЕКСТ — ВАЖНО)
+    # =====================
+
+    @bot.message_handler(func=lambda m: m.text == "/admin")
+    def admin_panel_text(message):
+        if not is_admin(message.from_user.id):
+            return
+        show_admin_panel(message.chat.id)
 
     # =====================
     # /stats
@@ -62,7 +77,6 @@ def register_admin_handlers(bot, ADMIN_ID_ref, SCRIPT_ENABLED_ref, users, all_us
     def script_on(message):
         if not is_admin(message.from_user.id):
             return
-
         SCRIPT_ENABLED_ref(True)
         bot.send_message(
             message.chat.id,
@@ -79,7 +93,6 @@ def register_admin_handlers(bot, ADMIN_ID_ref, SCRIPT_ENABLED_ref, users, all_us
     def script_off(message):
         if not is_admin(message.from_user.id):
             return
-
         SCRIPT_ENABLED_ref(False)
         bot.send_message(
             message.chat.id,
@@ -96,7 +109,6 @@ def register_admin_handlers(bot, ADMIN_ID_ref, SCRIPT_ENABLED_ref, users, all_us
     def script_status(message):
         if not is_admin(message.from_user.id):
             return
-
         bot.send_message(
             message.chat.id,
             f"🤖 Скрипт сейчас: *{'ВКЛЮЧЕН' if SCRIPT_ENABLED_ref() else 'ВЫКЛЮЧЕН'}*",
@@ -105,14 +117,13 @@ def register_admin_handlers(bot, ADMIN_ID_ref, SCRIPT_ENABLED_ref, users, all_us
         )
 
     # =====================
-    # ВОЗВРАТ ИЗ АДМИНКИ
+    # НАЗАД
     # =====================
 
     @bot.message_handler(func=lambda m: m.text == "⬅️ Назад")
     def admin_back(message):
         if not is_admin(message.from_user.id):
             return
-
         bot.send_message(
             message.chat.id,
             "Выход из админ-панели",
