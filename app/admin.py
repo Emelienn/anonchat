@@ -8,8 +8,6 @@ def register_admin_handlers(bot, ADMIN_ID_ref, SCRIPT_ENABLED_ref, users, all_us
         except:
             return False
 
-    BOT_USERNAME = bot.get_me().username
-
     # =====================
     # ОБЩИЙ ВЫВОД АДМИНКИ
     # =====================
@@ -30,7 +28,7 @@ def register_admin_handlers(bot, ADMIN_ID_ref, SCRIPT_ENABLED_ref, users, all_us
     # /admin
     # =====================
 
-    @bot.message_handler(commands=["admin", f"admin@{BOT_USERNAME}"])
+    @bot.message_handler(commands=["admin"])
     def admin_panel(message):
         if not is_admin(message.from_user.id):
             return
@@ -40,7 +38,7 @@ def register_admin_handlers(bot, ADMIN_ID_ref, SCRIPT_ENABLED_ref, users, all_us
     # /stats
     # =====================
 
-    @bot.message_handler(commands=["stats", f"stats@{BOT_USERNAME}"])
+    @bot.message_handler(commands=["stats"])
     def stats_cmd(message):
         if not is_admin(message.from_user.id):
             return
@@ -65,7 +63,7 @@ def register_admin_handlers(bot, ADMIN_ID_ref, SCRIPT_ENABLED_ref, users, all_us
     # /script_on
     # =====================
 
-    @bot.message_handler(commands=["script_on", f"script_on@{BOT_USERNAME}"])
+    @bot.message_handler(commands=["script_on"])
     def script_on(message):
         if not is_admin(message.from_user.id):
             return
@@ -82,7 +80,7 @@ def register_admin_handlers(bot, ADMIN_ID_ref, SCRIPT_ENABLED_ref, users, all_us
     # /script_off
     # =====================
 
-    @bot.message_handler(commands=["script_off", f"script_off@{BOT_USERNAME}"])
+    @bot.message_handler(commands=["script_off"])
     def script_off(message):
         if not is_admin(message.from_user.id):
             return
@@ -99,7 +97,7 @@ def register_admin_handlers(bot, ADMIN_ID_ref, SCRIPT_ENABLED_ref, users, all_us
     # /script_status
     # =====================
 
-    @bot.message_handler(commands=["script_status", f"script_status@{BOT_USERNAME}"])
+    @bot.message_handler(commands=["script_status"])
     def script_status(message):
         if not is_admin(message.from_user.id):
             return
