@@ -95,20 +95,18 @@ def is_admin(uid):
     except:
         return False
 
-BOT_USERNAME = bot.get_me().username  # ← ДОБАВЛЕНО
-
-@bot.message_handler(commands=["admin", f"admin@{BOT_USERNAME}"])  # ← ИСПРАВЛЕНО
+@bot.message_handler(commands=["admin"])
 def admin_panel(message):
     if not is_admin(message.from_user.id):
         return
     bot.send_message(
         message.chat.id,
-        "🛠 *Админ-панель*\n\n"
+        "🛠 Админ-панель\n\n"
         "/stats — статистика\n"
         "/script_on — включить скрипт\n"
         "/script_off — выключить скрипт\n"
-        "/script_status — статус",
-        parse_mode="Markdown"
+        "/script_status — статус"
+        # ❗ parse_mode УБРАН
     )
 
 @bot.message_handler(commands=["stats"])
