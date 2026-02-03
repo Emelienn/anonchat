@@ -2,6 +2,7 @@ import os
 import telebot
 import threading
 import random
+import time
 
 from keyboards import main_menu, search_menu, chat_menu
 from admin import register_admin_handlers
@@ -257,5 +258,11 @@ def relay(message):
 
 if __name__ == "__main__":
     print("🖤 Анонимный чат | 18+ запущен")
-    bot.remove_webhook(drop_pending_updates=True)  # ← КЛЮЧЕВАЯ ПРАВКА
-    bot.infinity_polling()
+    bot.remove_webhook(drop_pending_updates=True)
+
+    while True:
+        try:
+            bot.polling(none_stop=True, interval=0, timeout=20)
+        except Exception as e:
+            print("Polling error:", e)
+            time.sleep(5)
