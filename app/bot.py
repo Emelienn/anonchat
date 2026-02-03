@@ -216,6 +216,42 @@ def next_partner(message):
         )
 
 # =====================
+# ЖАЛОБА
+# =====================
+
+@bot.message_handler(func=lambda m: m.text == "⚠️ Пожаловаться")
+def report_user(message):
+    uid = message.from_user.id
+
+    if users.get(uid, {}).get("state") != "chatting":
+        return
+
+    pid = users[uid].get("partner_id")
+
+    bot.send_message(
+        ADMIN_ID,
+        f"⚠️ *Жалоба*\n\n"
+        f"От пользователя: `{uid}`\n"
+        f"На пользователя: `{pid}`",
+        parse_mode="Markdown"
+    )
+
+    if pid in users:
+        reset_user(pid)
+        bot.send_message(
+            pid,
+            "❌ Диалог завершён",
+            reply_markup=main_menu()
+        )
+
+    reset_user(uid)
+    bot.send_message(
+        uid,
+        "⚠️ Жалоба отправлена. Диалог завершён.",
+        reply_markup=main_menu()
+    )
+
+# =====================
 # ПЕРЕСЫЛКА
 # =====================
 
