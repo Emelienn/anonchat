@@ -169,11 +169,7 @@ def start_dialog(message):
 @bot.message_handler(func=lambda m: m.text in ["⛔ Остановить поиск", "🚪 Выйти из чата"])
 def stop_search(message):
     reset_user(message.from_user.id)
-    bot.send_message(
-        message.from_user.id,
-        "Поиск остановлен",
-        reply_markup=main_menu()
-    )
+    bot.send_message(message.from_user.id, "Поиск остановлен", reply_markup=main_menu())
 
 @bot.message_handler(func=lambda m: m.text == "🔄 Следующий собеседник")
 def next_partner(message):
@@ -184,20 +180,12 @@ def next_partner(message):
 
     if pid in users and users[pid]["state"] == "chatting":
         reset_user(pid)
-        bot.send_message(
-            pid,
-            "❌ Собеседник переключился",
-            reply_markup=main_menu()
-        )
+        bot.send_message(pid, "❌ Собеседник переключился", reply_markup=main_menu())
 
     users[uid]["state"] = "waiting"
     waiting_list.append(uid)
 
-    bot.send_message(
-        uid,
-        "🔄 Ищем нового собеседника…",
-        reply_markup=search_menu()
-    )
+    bot.send_message(uid, "🔄 Ищем нового собеседника…", reply_markup=search_menu())
     try_find_pair()
 
     if SCRIPT_ENABLED and len(waiting_list) == 1:
@@ -214,42 +202,6 @@ def next_partner(message):
             chat_menu=chat_menu,
             main_menu=main_menu
         )
-
-# =====================
-# ЖАЛОБА
-# =====================
-
-@bot.message_handler(func=lambda m: m.text == "⚠️ Пожаловаться")
-def report_user(message):
-    uid = message.from_user.id
-
-    if users.get(uid, {}).get("state") != "chatting":
-        return
-
-    pid = users[uid].get("partner_id")
-
-    bot.send_message(
-        ADMIN_ID,
-        f"⚠️ *Жалоба*\n\n"
-        f"От пользователя: `{uid}`\n"
-        f"На пользователя: `{pid}`",
-        parse_mode="Markdown"
-    )
-
-    if pid in users:
-        reset_user(pid)
-        bot.send_message(
-            pid,
-            "❌ Диалог завершён",
-            reply_markup=main_menu()
-        )
-
-    reset_user(uid)
-    bot.send_message(
-        uid,
-        "⚠️ Жалоба отправлена. Диалог завершён.",
-        reply_markup=main_menu()
-    )
 
 # =====================
 # ПЕРЕСЫЛКА
@@ -282,11 +234,7 @@ def relay(message):
             )
     except:
         reset_user(uid)
-        bot.send_message(
-            uid,
-            "❌ Диалог завершён",
-            reply_markup=main_menu()
-        )
+        bot.send_message(uid, "❌ Диалог завершён", reply_markup=main_menu())
 
 # =====================
 # СТАРТ
@@ -295,4 +243,10 @@ def relay(message):
 if __name__ == "__main__":
     print("🖤 Анонимный чат | 18+ запущен")
     bot.remove_webhook()
-    bot.infinity_polling()
+
+    while True:
+        try:
+            bot.polling(none_stop=True, interval=0, timeout=20)
+        except Exception as e:
+            print("Polling error:", e)
+            time.sleep(5)
