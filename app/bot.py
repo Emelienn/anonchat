@@ -255,15 +255,15 @@ def report_user(message):
 # ПЕРЕСЫЛКА
 # =====================
 
-@bot.message_handler(
-    func=lambda m: m.text is None or not m.text.startswith("/"),
-    content_types=[
-        "text", "photo", "video", "video_note", "voice",
-        "audio", "document", "sticker", "animation",
-        "location", "contact"
-    ]
-)
+@bot.message_handler(content_types=[
+    "text", "photo", "video", "video_note", "voice",
+    "audio", "document", "sticker", "animation",
+    "location", "contact"
+])
 def relay(message):
+    if message.text and message.text.startswith("/"):
+        return
+
     uid = message.from_user.id
     if users.get(uid, {}).get("state") != "chatting":
         return
@@ -295,10 +295,4 @@ def relay(message):
 if __name__ == "__main__":
     print("🖤 Анонимный чат | 18+ запущен")
     bot.remove_webhook()
-
-    while True:
-        try:
-            bot.polling(none_stop=True, interval=0, timeout=20)
-        except Exception as e:
-            print("Polling error:", e)
-            time.sleep(5)
+    bot.infinity_polling()
