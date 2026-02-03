@@ -69,9 +69,9 @@ def cancel_script(uid):
             pass
 
 def reset_user(uid):
-    cancel_script(uid)
     users[uid] = {"state": "none", "partner_id": None}
     all_users.add(uid)
+    cancel_script(uid)
     if uid in waiting_list:
         try:
             waiting_list.remove(uid)
@@ -95,18 +95,20 @@ def is_admin(uid):
     return uid == ADMIN_ID
 
 # =====================
-# РОУТЕР ДЛЯ АДМИН-КОМАНД (УНИВЕРСАЛЬНЫЙ)
+# AДМИН-РОУТЕР (FIX: поддержка @botname)
 # =====================
 
-ADMIN_CMDS = {"/admin", "/stats", "/script_on", "/script_off", "/script_status"}
+ADMIN_COMMANDS = {"/admin", "/stats", "/script_on", "/script_off", "/script_status"}
 
-@bot.message_handler(func=lambda m: m.text and m.text.split()[0].split("@")[0] in ADMIN_CMDS)
-def admin_command_router(message):
-    cmd = message.text.split()[0].split("@")[0]
+@bot.message_handler(func=lambda m: bool(m.text) and m.text.split()[0].split("@")[0] in ADMIN_COMMANDS)
+def admin_router(message):
+    global SCRIPT_ENABLED
+
     uid = message.from_user.id
     chat_id = message.chat.id
+    cmd = message.text.split()[0].split("@")[0]
 
-    # разрешаем админские команды только администратору
+    # разрешаем только администратору
     if not is_admin(uid):
         return
 
@@ -131,7 +133,7 @@ def admin_command_router(message):
             chat_id,
             "📊 *Статистика бота*\n\n"
             f"👥 Всего пользователей: {len(all_users)}\n"
-            f"🟢 Пользовались сейчас: {online}\n"
+            f"🟢 Онлайн сейчас: {online}\n"
             f"🔍 В поиске: {searching}\n"
             f"💬 В чате: {chatting}\n\n"
             f"🤖 Скрипт: {'ВКЛЮЧЕН' if SCRIPT_ENABLED else 'ВЫКЛЮЧЕН'}",
@@ -140,7 +142,6 @@ def admin_command_router(message):
         return
 
     if cmd == "/script_on":
-        global SCRIPT_ENABLED
         SCRIPT_ENABLED = True
         bot.send_message(chat_id, "🤖 Скрипт *включён*", parse_mode="Markdown")
         return
@@ -159,7 +160,7 @@ def admin_command_router(message):
         return
 
 # =====================
-# СКРИПТ
+# СКРИПТ (ИСПРАВЛЕН)
 # =====================
 
 def run_script(uid):
@@ -172,6 +173,7 @@ def run_script(uid):
     if len(waiting_list) != 1:
         return
 
+    # 🔒 изолируем пользователя
     users[uid]["state"] = "script"
     if uid in waiting_list:
         try:
@@ -179,6 +181,7 @@ def run_script(uid):
         except ValueError:
             pass
 
+    # ✅ уведомление как у реального мэтча
     try:
         bot.send_message(uid, "💬 Собеседник найден", reply_markup=chat_menu())
     except Exception:
@@ -217,7 +220,7 @@ def start_cmd(message):
     send_welcome(message.from_user.id)
 
 # =====================
-# ПОИСК ПАРЫ
+# ПОИСК
 # =====================
 
 def try_find_pair():
@@ -277,7 +280,10 @@ def next_partner(message):
 
     if pid in users and users[pid]["state"] == "chatting":
         reset_user(pid)
-        bot.send_message(pid, "❌ Собеседник переключился", reply_markup=main_menu())
+        try:
+            bot.send_message(pid, "❌ Собеседник переключился", reply_markup=main_menu())
+        except Exception:
+            pass
 
     users[uid]["state"] = "waiting"
     waiting_list.append(uid)
@@ -289,7 +295,7 @@ def next_partner(message):
         run_script(uid)
 
 # =====================
-# ПЕРЕСЫЛКА (УНИВЕРСАЛЬНАЯ)
+# ПЕРЕСЫЛКА
 # =====================
 
 @bot.message_handler(content_types=[
@@ -310,9 +316,14 @@ def relay(message):
         return
 
     try:
-        bot.copy_message(pid, message.chat.id, message.message_id)
-    except Exception as e:
-        print("Relay error:", e)
+        if message.content_type == "text":
+            bot.send_message(pid, message.text)
+        else:
+            getattr(bot, f"send_{message.content_type}")(
+                pid,
+                getattr(message, message.content_type).file_id
+            )
+    except Exception:
         reset_user(uid)
         try:
             bot.send_message(uid, "❌ Диалог завершён", reply_markup=main_menu())
