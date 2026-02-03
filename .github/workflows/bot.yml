@@ -22,9 +22,17 @@ jobs:
           pip install --upgrade pip
           pip install pyTelegramBotAPI
 
-      - name: Run bot (correct cwd)
+      - name: Run bot
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-        working-directory: app
         run: |
-          python bot.py
+          echo "Starting bot..."
+          python app/bot.py &
+          BOT_PID=$!
+          echo "Bot PID: $BOT_PID"
+
+          # keep-alive для GitHub Actions
+          while kill -0 $BOT_PID 2>/dev/null; do
+            echo "Bot alive: $(date)"
+            sleep 30
+          done
