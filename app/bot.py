@@ -255,15 +255,15 @@ def report_user(message):
 # ПЕРЕСЫЛКА
 # =====================
 
-@bot.message_handler(content_types=[
-    "text", "photo", "video", "video_note", "voice",
-    "audio", "document", "sticker", "animation",
-    "location", "contact"
-])
+@bot.message_handler(
+    func=lambda m: m.text is None or not m.text.startswith("/"),
+    content_types=[
+        "text", "photo", "video", "video_note", "voice",
+        "audio", "document", "sticker", "animation",
+        "location", "contact"
+    ]
+)
 def relay(message):
-    if message.text and message.text.startswith("/"):
-        return
-
     uid = message.from_user.id
     if users.get(uid, {}).get("state") != "chatting":
         return
