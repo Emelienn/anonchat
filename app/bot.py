@@ -63,14 +63,21 @@ def chat_menu():
 def cancel_script(uid):
     timer = script_timers.pop(uid, None)
     if timer:
-        timer.cancel()
+        try:
+            timer.cancel()
+        except Exception:
+            pass
 
 def reset_user(uid):
+    # вызываем cancel сначала, затем сбрасываем состояние
+    cancel_script(uid)
     users[uid] = {"state": "none", "partner_id": None}
     all_users.add(uid)
-    cancel_script(uid)
     if uid in waiting_list:
-        waiting_list.remove(uid)
+        try:
+            waiting_list.remove(uid)
+        except ValueError:
+            pass
 
 def send_welcome(uid):
     text = (
@@ -82,7 +89,7 @@ def send_welcome(uid):
     try:
         with open(WELCOME_IMAGE, "rb") as photo:
             bot.send_photo(uid, photo, caption=text, parse_mode="Markdown", reply_markup=main_menu())
-    except:
+    except Exception:
         bot.send_message(uid, text, parse_mode="Markdown", reply_markup=main_menu())
 
 # =====================
@@ -111,15 +118,15 @@ def stats_cmd(message):
     if not is_admin(message.from_user.id):
         return
 
-    online = sum(1 for u in users.values() if u["state"] != "none")
-    searching = sum(1 for u in users.values() if u["state"] == "waiting")
-    chatting = sum(1 for u in users.values() if u["state"] == "chatting")
+    online = sum(1 for u in users.values() if u.get("state") != "none")
+    searching = sum(1 for u in users.values() if u.get("state") == "waiting")
+    chatting = sum(1 for u in users.values() if u.get("state") == "chatting")
 
     bot.send_message(
         message.chat.id,
         "📊 *Статистика бота*\n\n"
         f"👥 Всего пользователей: {len(all_users)}\n"
-        f"🟢 Онлайн сейчас: {online}\n"
+        f"🟢 Пользовались сейчас: {online}\n"
         f"🔍 В поиске: {searching}\n"
         f"💬 В чате: {chatting}\n\n"
         f"🤖 Скрипт: {'ВКЛЮЧЕН' if SCRIPT_ENABLED else 'ВЫКЛЮЧЕН'}",
@@ -129,25 +136,28 @@ def stats_cmd(message):
 @bot.message_handler(commands=["script_on"])
 def script_on(message):
     global SCRIPT_ENABLED
-    if is_admin(message.from_user.id):
-        SCRIPT_ENABLED = True
-        bot.send_message(message.chat.id, "🤖 Скрипт *включён*", parse_mode="Markdown")
+    if not is_admin(message.from_user.id):
+        return
+    SCRIPT_ENABLED = True
+    bot.send_message(message.chat.id, "🤖 Скрипт *включён*", parse_mode="Markdown")
 
 @bot.message_handler(commands=["script_off"])
 def script_off(message):
     global SCRIPT_ENABLED
-    if is_admin(message.from_user.id):
-        SCRIPT_ENABLED = False
-        bot.send_message(message.chat.id, "🤖 Скрипт *выключен*", parse_mode="Markdown")
+    if not is_admin(message.from_user.id):
+        return
+    SCRIPT_ENABLED = False
+    bot.send_message(message.chat.id, "🤖 Скрипт *выключен*", parse_mode="Markdown")
 
 @bot.message_handler(commands=["script_status"])
 def script_status(message):
-    if is_admin(message.from_user.id):
-        bot.send_message(
-            message.chat.id,
-            f"🤖 Скрипт сейчас: *{'ВКЛЮЧЕН' if SCRIPT_ENABLED else 'ВЫКЛЮЧЕН'}*",
-            parse_mode="Markdown"
-        )
+    if not is_admin(message.from_user.id):
+        return
+    bot.send_message(
+        message.chat.id,
+        f"🤖 Скрипт сейчас: *{'ВКЛЮЧЕН' if SCRIPT_ENABLED else 'ВЫКЛЮЧЕН'}*",
+        parse_mode="Markdown"
+    )
 
 # =====================
 # СКРИПТ (ИСПРАВЛЕН)
@@ -155,6 +165,9 @@ def script_status(message):
 
 def run_script(uid):
     if not SCRIPT_ENABLED:
+        return
+    # не запускаем второй таймер на одного и того же пользователя
+    if uid in script_timers:
         return
     if users.get(uid, {}).get("state") != "waiting":
         return
@@ -164,22 +177,34 @@ def run_script(uid):
     # 🔒 изолируем пользователя
     users[uid]["state"] = "script"
     if uid in waiting_list:
-        waiting_list.remove(uid)
+        try:
+            waiting_list.remove(uid)
+        except ValueError:
+            pass
 
     # ✅ уведомление как у реального мэтча
-    bot.send_message(uid, "💬 Собеседник найден", reply_markup=chat_menu())
+    try:
+        bot.send_message(uid, "💬 Собеседник найден", reply_markup=chat_menu())
+    except Exception:
+        pass
 
     def step():
         if users.get(uid, {}).get("state") != "script":
             return
 
         if random.random() > SILENT_SKIP_CHANCE:
-            bot.send_message(uid, random.choice(SCRIPT_MESSAGES))
+            try:
+                bot.send_message(uid, random.choice(SCRIPT_MESSAGES))
+            except Exception:
+                pass
 
         def skip():
             if users.get(uid, {}).get("state") == "script":
                 reset_user(uid)
-                bot.send_message(uid, "❌ Собеседник переключился", reply_markup=main_menu())
+                try:
+                    bot.send_message(uid, "❌ Собеседник переключился", reply_markup=main_menu())
+                except Exception:
+                    pass
 
         threading.Timer(4, skip).start()
 
@@ -204,6 +229,7 @@ def try_find_pair():
         u1 = waiting_list.pop(0)
         u2 = waiting_list.pop(0)
 
+        # защита от устаревших/неожиданных состояний
         if users.get(u1, {}).get("state") != "waiting":
             continue
         if users.get(u2, {}).get("state") != "waiting":
@@ -267,7 +293,7 @@ def next_partner(message):
         run_script(uid)
 
 # =====================
-# ПЕРЕСЫЛКА
+# ПЕРЕСЫЛКА (УНИВЕРСАЛЬНАЯ)
 # =====================
 
 @bot.message_handler(content_types=[
@@ -276,6 +302,7 @@ def next_partner(message):
     "location", "contact"
 ])
 def relay(message):
+    # не пересылаем бот-команды
     if message.text and message.text.startswith("/"):
         return
 
@@ -288,21 +315,20 @@ def relay(message):
         return
 
     try:
-        if message.content_type == "text":
-            bot.send_message(pid, message.text)
-        else:
-            getattr(bot, f"send_{message.content_type}")(
-                pid,
-                getattr(message, message.content_type).file_id
-            )
-    except:
+        # единый, надёжный способ пересылки любого содержимого
+        bot.copy_message(pid, message.chat.id, message.message_id)
+    except Exception as e:
+        print("Relay error:", e)
         reset_user(uid)
-        bot.send_message(uid, "❌ Диалог завершён", reply_markup=main_menu())
+        try:
+            bot.send_message(uid, "⚠️ Диалог завершён", reply_markup=main_menu())
+        except Exception:
+            pass
 
 # =====================
 # СТАРТ
 # =====================
 
 if __name__ == "__main__":
-    print("🖤 Анонимный чат | 18+ запущен")
+    print("🕶 Анонимный чат | 18+ запущен")
     bot.infinity_polling()
